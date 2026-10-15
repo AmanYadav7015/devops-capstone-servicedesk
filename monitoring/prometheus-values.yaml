@@ -61,42 +61,73 @@ additionalPrometheusRulesMap:
         interval: 30s
         rules:
           - record: servicedesk:http_requests:rate5m
-            expr: sum(rate(http_requests_total{namespace=~"servicedesk|monitoring", job=~"servicedesk.*"}[5m]))
+            expr: |
+              sum(
+                max by (instance, handler, method, status) (
+                  rate(http_requests_total{namespace="servicedesk"}[5m])
+                )
+              )
           - record: servicedesk:http_requests_by_handler:rate5m
-            expr: sum by (handler, method) (rate(http_requests_total{namespace=~"servicedesk|monitoring", job=~"servicedesk.*"}[5m]))
+            expr: |
+              sum by (handler, method) (
+                max by (instance, handler, method, status) (
+                  rate(http_requests_total{namespace="servicedesk"}[5m])
+                )
+              )
           - record: servicedesk:http_errors:rate5m
-            expr: sum(rate(http_requests_total{namespace=~"servicedesk|monitoring", job=~"servicedesk.*", status=~"4..|5.."}[5m]))
+            expr: |
+              sum(
+                max by (instance, handler, method, status) (
+                  rate(http_requests_total{namespace="servicedesk", status=~"4xx|5xx"}[5m])
+                )
+              )
           - record: servicedesk:http_error_ratio:rate5m
             expr: |
-              sum(rate(http_requests_total{namespace=~"servicedesk|monitoring", job=~"servicedesk.*", status=~"4..|5.."}[5m]))
+              servicedesk:http_errors:rate5m
               /
-              clamp_min(sum(rate(http_requests_total{namespace=~"servicedesk|monitoring", job=~"servicedesk.*"}[5m])), 1e-9)
+              clamp_min(servicedesk:http_requests:rate5m, 1e-9)
           - record: servicedesk:http_request_latency_p95:5m
-            expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{namespace=~"servicedesk|monitoring", job=~"servicedesk.*"}[5m])))
+            expr: |
+              histogram_quantile(0.95,
+                sum by (le) (
+                  max by (instance, le) (
+                    rate(http_request_duration_highr_seconds_bucket{namespace="servicedesk"}[5m])
+                  )
+                )
+              )
           - record: servicedesk:ticket_api_requests:rate5m
-            expr: sum by (handler, method) (rate(http_requests_total{namespace=~"servicedesk|monitoring", job=~"servicedesk.*", handler=~"/api/tickets.*"}[5m]))
+            expr: |
+              sum by (handler, method) (
+                max by (instance, handler, method, status) (
+                  rate(http_requests_total{namespace="servicedesk", handler=~"/api/tickets.*"}[5m])
+                )
+              )
           - record: servicedesk:ticket_api_sla_fast_ratio:5m
             expr: |
-              sum(rate(http_request_duration_seconds_bucket{namespace=~"servicedesk|monitoring", job=~"servicedesk.*", handler=~"/api/tickets.*", le="0.3"}[5m]))
+              sum(
+                max by (instance) (
+                  rate(http_request_duration_seconds_bucket{namespace="servicedesk", handler=~"/api/tickets.*", le="0.5"}[5m])
+                )
+              )
               /
-              clamp_min(sum(rate(http_request_duration_seconds_count{namespace=~"servicedesk|monitoring", job=~"servicedesk.*", handler=~"/api/tickets.*"}[5m])), 1e-9)
+              clamp_min(
+                sum(
+                  max by (instance) (
+                    rate(http_request_duration_seconds_count{namespace="servicedesk", handler=~"/api/tickets.*"}[5m])
+                  )
+                ), 1e-9)
           - record: servicedesk:ticket_api_sla_breach_ratio:5m
             expr: |
-              1 -
-              (
-                sum(rate(http_request_duration_seconds_bucket{namespace=~"servicedesk|monitoring", job=~"servicedesk.*", handler=~"/api/tickets.*", le="0.3"}[5m]))
-                /
-                clamp_min(sum(rate(http_request_duration_seconds_count{namespace=~"servicedesk|monitoring", job=~"servicedesk.*", handler=~"/api/tickets.*"}[5m])), 1e-9)
-              )
+              1 - servicedesk:ticket_api_sla_fast_ratio:5m
       - name: servicedesk.api.alerts
         rules:
           - alert: ServiceDeskBackendDown
-            expr: max(up{job=~"servicedesk.*"}) == 0
+            expr: max(up{namespace="servicedesk", job=~"servicedesk.*"}) == 0
             for: 2m
             labels:
               severity: critical
             annotations:
-              summary: ServiceDesk backend is not being scraped
+              summary: ServiceDesk backend is not being scraped by Prometheus
           - alert: ServiceDeskHighErrorRate
             expr: servicedesk:http_error_ratio:rate5m > 0.25
             for: 5m
@@ -110,7 +141,7 @@ additionalPrometheusRulesMap:
             labels:
               severity: warning
             annotations:
-              summary: More than 10 percent of ticket API calls exceed the 300ms SLA budget
+              summary: More than 10 percent of ticket API calls exceed the 500ms service-level objective
 
 kubeEtcd:
   enabled: false

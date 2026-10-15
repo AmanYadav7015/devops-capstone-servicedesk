@@ -3,6 +3,7 @@ set -euo pipefail
 
 RELEASE="${RELEASE:-kube-prometheus-stack}"
 NS="${NS:-monitoring}"
+CHART_VERSION="${CHART_VERSION:-92.1.0}"
 APP_NS="${APP_NS:-servicedesk}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -15,6 +16,7 @@ helm repo add prometheus-community https://prometheus-community.github.io/helm-c
 helm repo update prometheus-community >/dev/null
 
 helm upgrade --install "$RELEASE" prometheus-community/kube-prometheus-stack \
+  --version "$CHART_VERSION" \
   --namespace "$NS" --create-namespace \
   -f "$HERE/prometheus-values.yaml" \
   -f "$HERE/grafana-values.yaml" \
