@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: servicedesk
+  labels:
+    name: servicedesk
+    app.kubernetes.io/name: servicedesk
+    app.kubernetes.io/part-of: servicedesk
+    app.kubernetes.io/managed-by: kubectl
