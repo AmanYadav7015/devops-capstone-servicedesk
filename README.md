@@ -29,6 +29,43 @@ same Prometheus and Grafana stack. The grading policy permits exactly that: *"Th
 must be your own. The DevOps layer may follow the same architecture."* Nothing in this repository is
 a copy of the reference application.
 
+## Live deployment
+
+The application is hosted on Render, built from the same Dockerfiles the Kubernetes deployment uses.
+
+| | URL |
+|---|---|
+| Console | <https://servicedesk-frontend-iikc.onrender.com> |
+| API | <https://servicedesk-backend-1qrp.onrender.com> |
+| API docs | <https://servicedesk-backend-1qrp.onrender.com/docs> |
+| Health | <https://servicedesk-backend-1qrp.onrender.com/health> |
+| Metrics | <https://servicedesk-backend-1qrp.onrender.com/metrics> |
+
+Defined in [`render.yaml`](render.yaml): a managed PostgreSQL instance plus the backend and frontend
+as Docker web services. Alembic runs on backend start, so the schema and the seeded categories are
+created on first boot.
+
+**Both services are on Render's free tier and sleep after 15 minutes of inactivity.** The first
+request after a sleep takes roughly 50 seconds while the container wakes. The managed database is
+removed after 30 days, after which the site loads but the API returns errors. This hosting is a
+convenience for reviewing the application; the Kubernetes deployment described below is the
+deliverable.
+
+### Three portability faults this deployment exposed
+
+The image passed CI, passed its security scan and ran in Kubernetes, yet failed three times on a
+stricter host. Each fix is in git history and each makes the image more portable.
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Container up, nothing listening, health check timed out | the stock nginx entrypoint script derives a checksum via `apk manifest`, which blocks when run as a non-root user | removed the script; this image replaces the config it patches |
+| `exec: nginx: Operation not permitted`, exit 126 | the binary carried `cap_net_bind_service` so it could bind port 80; a host setting `no_new_privileges` refuses to exec a file with capabilities | dropped the capability and moved the listener to 8080, which needs no privilege |
+| `502 Bad Gateway` with the backend healthy when called directly | `Host` was forwarded as `$host`, and a variable `proxy_pass` sends no SNI, so a TLS-terminating edge could not route or complete the handshake | `Host $proxy_host` and `proxy_ssl_server_name on` |
+
+None of the three is visible when the backend is plain HTTP on the same network, which is why the
+cluster deployment never surfaced them.
+
+
 ## Domain model
 
 Two tables with a real foreign key between them, so the Alembic migration has something to say and
