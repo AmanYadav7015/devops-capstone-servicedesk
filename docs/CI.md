@@ -312,11 +312,12 @@ URL ever equals `DATABASE_URL`, so the fallback cannot silently become the produ
 
 ### 3.3 Why the image tag is not the application version
 
-`backend/app/main.py` reports `version: "1.0.0"`. The image tag is the commit SHA instead. The two
-are deliberately separate: a Docker tag may not contain `+`, so a SemVer build suffix such as
-`1.0.0+build.42` is not a legal tag, and more importantly an application version does not change on
-every commit while an image must. Tagging by SHA means every image is addressable by the exact source
-that produced it.
+The backend reports an application version of its own, from `APP_VERSION` in `backend/app/config.py`.
+The image tag is the commit SHA instead. The two are deliberately separate: a Docker tag may not
+contain `+`, so a SemVer build suffix such as `1.1.0+build.42` is not a legal tag, and more
+importantly an application version does not change on every commit while an image must. Tagging by
+SHA means every image is addressable by the exact source that produced it, whatever the application
+calls itself at the time.
 
 ### 3.4 The owner must be lowercased
 
