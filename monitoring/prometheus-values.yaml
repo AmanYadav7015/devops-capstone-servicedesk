@@ -1,0 +1,122 @@
+fullnameOverride: kube-prometheus-stack
+
+alertmanager:
+  enabled: false
+
+prometheusOperator:
+  admissionWebhooks:
+    enabled: true
+    patch:
+      enabled: true
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {cpu: 300m, memory: 384Mi}
+
+prometheus:
+  service:
+    type: NodePort
+    nodePort: 30250
+  prometheusSpec:
+    scrapeInterval: 15s
+    evaluationInterval: 30s
+    retention: 12h
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+    podMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelector: {}
+    podMonitorNamespaceSelector: {}
+    ruleSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    scrapeConfigSelectorNilUsesHelmValues: false
+    resources:
+      requests: {cpu: 150m, memory: 512Mi}
+      limits: {cpu: 1000m, memory: 1536Mi}
+    additionalScrapeConfigs:
+      - job_name: servicedesk-backend-fallback
+        scrape_interval: 15s
+        metrics_path: /metrics
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names: [servicedesk, monitoring]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_label_app]
+            action: keep
+            regex: servicedesk-backend
+          - source_labels: [__meta_kubernetes_endpoint_port_name]
+            action: keep
+            regex: http
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_service_name]
+            target_label: service
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+
+additionalPrometheusRulesMap:
+  servicedesk-api-rules:
+    groups:
+      - name: servicedesk.api.recording
+        interval: 30s
+        rules:
+          - record: servicedesk:http_requests:rate5m
+            expr: sum(rate(http_requests_total{namespace=~"servicedesk|monitoring", job=~"servicedesk.*"}[5m]))
+          - record: servicedesk:http_requests_by_handler:rate5m
+            expr: sum by (handler, method) (rate(http_requests_total{namespace=~"servicedesk|monitoring", job=~"servicedesk.*"}[5m]))
+          - record: servicedesk:http_errors:rate5m
+            expr: sum(rate(http_requests_total{namespace=~"servicedesk|monitoring", job=~"servicedesk.*", status=~"4..|5.."}[5m]))
+          - record: servicedesk:http_error_ratio:rate5m
+            expr: |
+              sum(rate(http_requests_total{namespace=~"servicedesk|monitoring", job=~"servicedesk.*", status=~"4..|5.."}[5m]))
+              /
+              clamp_min(sum(rate(http_requests_total{namespace=~"servicedesk|monitoring", job=~"servicedesk.*"}[5m])), 1e-9)
+          - record: servicedesk:http_request_latency_p95:5m
+            expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{namespace=~"servicedesk|monitoring", job=~"servicedesk.*"}[5m])))
+          - record: servicedesk:ticket_api_requests:rate5m
+            expr: sum by (handler, method) (rate(http_requests_total{namespace=~"servicedesk|monitoring", job=~"servicedesk.*", handler=~"/api/tickets.*"}[5m]))
+          - record: servicedesk:ticket_api_sla_fast_ratio:5m
+            expr: |
+              sum(rate(http_request_duration_seconds_bucket{namespace=~"servicedesk|monitoring", job=~"servicedesk.*", handler=~"/api/tickets.*", le="0.3"}[5m]))
+              /
+              clamp_min(sum(rate(http_request_duration_seconds_count{namespace=~"servicedesk|monitoring", job=~"servicedesk.*", handler=~"/api/tickets.*"}[5m])), 1e-9)
+          - record: servicedesk:ticket_api_sla_breach_ratio:5m
+            expr: |
+              1 -
+              (
+                sum(rate(http_request_duration_seconds_bucket{namespace=~"servicedesk|monitoring", job=~"servicedesk.*", handler=~"/api/tickets.*", le="0.3"}[5m]))
+                /
+                clamp_min(sum(rate(http_request_duration_seconds_count{namespace=~"servicedesk|monitoring", job=~"servicedesk.*", handler=~"/api/tickets.*"}[5m])), 1e-9)
+              )
+      - name: servicedesk.api.alerts
+        rules:
+          - alert: ServiceDeskBackendDown
+            expr: max(up{job=~"servicedesk.*"}) == 0
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: ServiceDesk backend is not being scraped
+          - alert: ServiceDeskHighErrorRate
+            expr: servicedesk:http_error_ratio:rate5m > 0.25
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: More than 25 percent of ServiceDesk API responses are 4xx or 5xx
+          - alert: ServiceDeskTicketApiSlaBreach
+            expr: servicedesk:ticket_api_sla_breach_ratio:5m > 0.1
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: More than 10 percent of ticket API calls exceed the 300ms SLA budget
+
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
