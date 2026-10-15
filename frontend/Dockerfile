@@ -19,7 +19,8 @@ RUN apk upgrade --no-cache \
  && chown -R nginx:nginx /var/cache/nginx /var/log/nginx /var/run/nginx.pid /etc/nginx/conf.d /etc/nginx/templates /usr/share/nginx/html
 
 COPY --from=build --chown=nginx:nginx /app/dist /usr/share/nginx/html
-ENV BACKEND_ORIGIN="http://backend:8000"
+ENV BACKEND_ORIGIN="http://backend:8000" \
+    NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
 COPY --chown=nginx:nginx nginx.conf /etc/nginx/templates/default.conf.template
 
 USER nginx
