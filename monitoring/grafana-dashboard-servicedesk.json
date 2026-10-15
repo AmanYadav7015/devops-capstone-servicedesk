@@ -1024,7 +1024,7 @@
       "id": 14,
       "type": "stat",
       "title": "Ticket API SLA breach ratio",
-      "description": "Recording rule servicedesk:ticket_api_sla_breach_ratio:5m - share of ticket API calls slower than the 300ms service-level objective.",
+      "description": "Recording rule servicedesk:ticket_api_sla_breach_ratio:5m - share of ticket API calls slower than the 500ms service-level objective, measured from the http_request_duration_seconds histogram bucket le=0.5.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
