@@ -29,6 +29,26 @@ same Prometheus and Grafana stack. The grading policy permits exactly that: *"Th
 must be your own. The DevOps layer may follow the same architecture."* Nothing in this repository is
 a copy of the reference application.
 
+## Walkthrough and slides
+
+| | |
+|---|---|
+| Recorded walkthrough | [v1.0-demo release](https://github.com/AmanYadav7015/devops-capstone-servicedesk/releases/tag/v1.0-demo) — 14m 44s, captions on screen |
+| Slides | [`docs/deck/servicedesk-capstone.pptx`](docs/deck/servicedesk-capstone.pptx) · [PDF](docs/deck/servicedesk-capstone.pdf) — 22 slides |
+| Narration script | [`docs/VIDEO-SCRIPT.md`](docs/VIDEO-SCRIPT.md) |
+| Caption timings | [`docs/deck/demo-caption-timings.json`](docs/deck/demo-caption-timings.json) — 89 beats with timestamps |
+
+The video sits on a release rather than in the tree so the repository stays small enough to clone
+quickly. It has no audio track: the script is burned in as captions, so a narration pass can be
+recorded over it.
+
+Terminal sections in the video show output captured from real runs — the test suite, the Terraform
+plan, the cluster state, the Helm revision history and the non-root check against the published
+image. Two sections need a live shell and are not in it: deleting a pod to show self-healing, and the
+commit-to-deployment chain, which [`scripts/demo-deploy.sh`](scripts/demo-deploy.sh) performs in one
+command.
+
+
 ## Live deployment
 
 The application is hosted on Render, built from the same Dockerfiles the Kubernetes deployment uses.

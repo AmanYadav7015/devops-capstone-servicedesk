@@ -1,0 +1,450 @@
+{
+ "total_seconds": 884.8,
+ "marks": [
+  {
+   "t": 14.1,
+   "section": "Section 1 \u2014 Introduction",
+   "line": "Hello everyone. Today, I will be demonstrating my DevOps capstone project, called ServiceDesk."
+  },
+  {
+   "t": 21.1,
+   "section": "Section 1 \u2014 Introduction",
+   "line": "ServiceDesk is a help desk ticket management application designed to help support teams create, track, assign, and resolve support tickets."
+  },
+  {
+   "t": 31.0,
+   "section": "Section 1 \u2014 Introduction",
+   "line": "Each ticket contains information such as the requester, category, severity, assigned person, and current status. Every ticket also has a Service Level Agreement, or SLA, deadline that is set twenty-four hours after its creation."
+  },
+  {
+   "t": 46.6,
+   "section": "Section 1 \u2014 Introduction",
+   "line": "The main objective of this project was not just to develop an application, but to implement the complete DevOps lifecycle around it."
+  },
+  {
+   "t": 57.4,
+   "section": "Section 1 \u2014 Introduction",
+   "line": "This includes automated testing, containerization, continuous integration and delivery, security scanning, Kubernetes deployment, infrastructure as code, and application monitoring."
+  },
+  {
+   "t": 66.8,
+   "section": "Section 1 \u2014 Introduction",
+   "line": "Throughout this walkthrough, I will demonstrate how these components work together to make the application more reliable, secure, and easier to deploy."
+  },
+  {
+   "t": 77.5,
+   "section": "Section 2 \u2014 Application (M1)",
+   "line": "The application is built using FastAPI for the backend, React and TypeScript for the frontend, and PostgreSQL for persistent data storage."
+  },
+  {
+   "t": 87.8,
+   "section": "Section 2 \u2014 Application (M1)",
+   "line": "I will now demonstrate the basic ticket workflow."
+  },
+  {
+   "t": 92.8,
+   "section": "Section 2 \u2014 Application (M1)",
+   "line": "First, I am creating a new ticket by entering the required details, selecting a category and severity, and submitting the form."
+  },
+  {
+   "t": 104.4,
+   "section": "Section 2 \u2014 Application (M1)",
+   "line": "Once I submit it, the ticket appears in the dashboard. This demonstrates that the frontend communicates with the backend and that the ticket is stored in the database."
+  },
+  {
+   "t": 117.5,
+   "section": "Section 2 \u2014 Application (M1)",
+   "line": "Next, I will change the ticket status to Pending. Notice how the dashboard statistics update to reflect the current state of the ticket queue."
+  },
+  {
+   "t": 129.1,
+   "section": "Section 2 \u2014 Application (M1)",
+   "line": "The backend exposes eleven API endpoints covering ticket operations, categories, health checks, readiness checks, and application metrics."
+  },
+  {
+   "t": 138.7,
+   "section": "Section 2 \u2014 Application (M1)",
+   "line": "The database also uses a relational schema in which tickets reference categories through a foreign key. This maintains referential integrity and ensures that category relationships are managed properly."
+  },
+  {
+   "t": 151.9,
+   "section": "Section 2 \u2014 Application (M1)",
+   "line": "Now I will verify the statistics directly through the API."
+  },
+  {
+   "t": 157.7,
+   "section": "Section 2 \u2014 Application (M1)",
+   "line": "This response provides the ticket statistics directly from the backend."
+  },
+  {
+   "t": 163.4,
+   "section": "Section 2 \u2014 Application (M1)",
+   "line": "The SLA breach count is calculated using the ticket deadline and its current status. Only tickets that remain open or pending are considered for this count. A ticket that has already been resolved is not counted as an active SLA breach, even if its deadline has passed."
+  },
+  {
+   "t": 184.5,
+   "section": "Section 2 \u2014 Application (M1)",
+   "line": "This demonstrates that the dashboard statistics are based on actual application logic rather than hard-coded values."
+  },
+  {
+   "t": 192.7,
+   "section": "Section 2 \u2014 Application (M1)",
+   "line": "This response provides the ticket statistics directly from the backend."
+  },
+  {
+   "t": 198.5,
+   "section": "Section 3 \u2014 Testing (M2)",
+   "line": "The next part of the project is automated testing."
+  },
+  {
+   "t": 203.8,
+   "section": "Section 3 \u2014 Testing (M2)",
+   "line": "I have created a backend test suite that covers the main application functionality, API behavior, and important edge cases."
+  },
+  {
+   "t": 213.3,
+   "section": "Section 3 \u2014 Testing (M2)",
+   "line": "When I run the test suite, the output shows the number of tests executed and whether they passed successfully."
+  },
+  {
+   "t": 222.7,
+   "section": "Section 3 \u2014 Testing (M2)",
+   "line": "The project has forty tests and ninety-eight percent test coverage, according to the project's test results."
+  },
+  {
+   "t": 231.0,
+   "section": "Section 3 \u2014 Testing (M2)",
+   "line": "One particularly important aspect is the isolation of the test database."
+  },
+  {
+   "t": 237.1,
+   "section": "Section 3 \u2014 Testing (M2)",
+   "line": "In the test configuration file, the test database URL is resolved before the application is imported. The configuration also checks that the test database is not the same as the production database."
+  },
+  {
+   "t": 252.0,
+   "section": "Section 4 \u2014 Docker (M4)",
+   "line": "Now I will demonstrate how the application is containerized using Docker."
+  },
+  {
+   "t": 258.1,
+   "section": "Section 4 \u2014 Docker (M4)",
+   "line": "Docker Compose allows the required services to be started together with a single command."
+  },
+  {
+   "t": 265.5,
+   "section": "Section 4 \u2014 Docker (M4)",
+   "line": "The output shows the services defined in the Compose configuration and their current status."
+  },
+  {
+   "t": 272.9,
+   "section": "Section 4 \u2014 Docker (M4)",
+   "line": "The frontend uses a multi-stage Docker build."
+  },
+  {
+   "t": 277.9,
+   "section": "Section 4 \u2014 Docker (M4)",
+   "line": "In the first stage, Node.js compiles the frontend application. In the final stage, Nginx serves the compiled static files."
+  },
+  {
+   "t": 287.4,
+   "section": "Section 4 \u2014 Docker (M4)",
+   "line": "This approach keeps the build tools out of the production image and helps reduce the final image size."
+  },
+  {
+   "t": 302.9,
+   "section": "Section 5 \u2014 CI/CD (M5)",
+   "line": "This is the continuous integration and delivery pipeline for the project."
+  },
+  {
+   "t": 309.1,
+   "section": "Section 5 \u2014 CI/CD (M5)",
+   "line": "Whenever a change is pushed to the main branch, the workflow runs a series of automated jobs to validate the application before publishing container images."
+  },
+  {
+   "t": 321.1,
+   "section": "Section 5 \u2014 CI/CD (M5)",
+   "line": "The pipeline includes frontend build validation, backend testing, image building and security scanning, image publishing, a Docker Compose smoke test, and a final summary."
+  },
+  {
+   "t": 332.6,
+   "section": "Section 5 \u2014 CI/CD (M5)",
+   "line": "I want to highlight a failed run because it demonstrates one of the most important features of the pipeline: a failing test must prevent an unverified artifact from being published."
+  },
+  {
+   "t": 347.8,
+   "section": "Section 5 \u2014 CI/CD (M5)",
+   "line": "This run corresponds to commit `759989a`. A deliberately failing test was introduced to verify the behavior of the pipeline."
+  },
+  {
+   "t": 357.3,
+   "section": "Section 5 \u2014 CI/CD (M5)",
+   "line": "As you can see, the test job failed. The downstream image build and publishing jobs were skipped, and the Compose smoke test was skipped as well."
+  },
+  {
+   "t": 369.7,
+   "section": "Section 5 \u2014 CI/CD (M5)",
+   "line": "That distinction is important. The pipeline did not simply report a failure after publishing the image. The dependency conditions prevented those downstream jobs from running."
+  },
+  {
+   "t": 386.8,
+   "section": "Section 5 \u2014 CI/CD (M5)",
+   "line": "Now I will switch to the container registry to show how this affects the published artifacts."
+  },
+  {
+   "t": 395.1,
+   "section": "Section 5 \u2014 CI/CD (M5)",
+   "line": "The registry contains images associated with successful commits."
+  },
+  {
+   "t": 400.1,
+   "section": "Section 5 \u2014 CI/CD (M5)",
+   "line": "Each image is tagged with a Git commit SHA, which makes it possible to trace the image back to the exact source code version that produced it."
+  },
+  {
+   "t": 412.9,
+   "section": "Section 5 \u2014 CI/CD (M5)",
+   "line": "This workflow does not rely on a floating latest tag. Instead, commit-specific tags make deployments more reproducible and easier to audit."
+  },
+  {
+   "t": 423.2,
+   "section": "Section 5 \u2014 CI/CD (M5)",
+   "line": "The failed commit did not produce a published image, as verified in the registry."
+  },
+  {
+   "t": 430.5,
+   "section": "Section 5 \u2014 CI/CD (M5)",
+   "line": "Together, the GitHub Actions workflow and the registry demonstrate that the pipeline acts as a release gate and that published artifacts can be traced back to their source code."
+  },
+  {
+   "t": 449.1,
+   "section": "Section 6 \u2014 Security (M6)",
+   "line": "Security scanning is another important part of this project."
+  },
+  {
+   "t": 454.5,
+   "section": "Section 6 \u2014 Security (M6)",
+   "line": "The pipeline uses Trivy to scan container images for known vulnerabilities. The workflow is configured to fail when vulnerabilities meet the specified high or critical severity threshold."
+  },
+  {
+   "t": 467.2,
+   "section": "Section 6 \u2014 Security (M6)",
+   "line": "I will now show the Trivy ignore configuration."
+  },
+  {
+   "t": 472.3,
+   "section": "Section 6 \u2014 Security (M6)",
+   "line": "The ignore file is empty, meaning that no vulnerabilities are being suppressed through this file."
+  },
+  {
+   "t": 480.1,
+   "section": "Section 6 \u2014 Security (M6)",
+   "line": "During development, I encountered two high-severity findings related to the Python dependency chain. The problem was that another dependency was restricting the version that could be installed."
+  },
+  {
+   "t": 492.8,
+   "section": "Section 6 \u2014 Security (M6)",
+   "line": "Instead of suppressing the findings, I traced the dependency constraint and upgraded the package that was holding the version back."
+  },
+  {
+   "t": 502.7,
+   "section": "Section 6 \u2014 Security (M6)",
+   "line": "After this change, the affected findings disappeared from the report."
+  },
+  {
+   "t": 508.5,
+   "section": "Section 7 \u2014 Kubernetes & Helm (M8)",
+   "line": "Next, I will demonstrate how the application is deployed on Kubernetes using Helm."
+  },
+  {
+   "t": 515.5,
+   "section": "Section 7 \u2014 Kubernetes & Helm (M8)",
+   "line": "The frontend and backend are deployed as separate workloads. Each is configured with two replicas, allowing Kubernetes to maintain multiple instances of the application."
+  },
+  {
+   "t": 527.0,
+   "section": "Section 7 \u2014 Kubernetes & Helm (M8)",
+   "line": "The services use ClusterIP networking, so internal communication happens through Kubernetes services instead of requiring each pod to have a public IP address."
+  },
+  {
+   "t": 538.1,
+   "section": "Section 7 \u2014 Kubernetes & Helm (M8)",
+   "line": "Ingress provides the entry point for browser traffic. The root path routes to the frontend, while the configured API path routes requests to the backend."
+  },
+  {
+   "t": 550.1,
+   "section": "Section 7 \u2014 Kubernetes & Helm (M8)",
+   "line": "Helm manages the deployment as a release. The release history shows the revisions created through installation and subsequent changes, including image updates and scaling operations."
+  },
+  {
+   "t": 562.0,
+   "section": "Section 7 \u2014 Kubernetes & Helm (M8)",
+   "line": "This is useful because it provides a record of deployment changes and allows us to roll back when necessary."
+  },
+  {
+   "t": 571.5,
+   "section": "Section 7 \u2014 Kubernetes & Helm (M8)",
+   "line": "I will now switch to the browser to show the application through the configured Ingress hostname."
+  },
+  {
+   "t": 579.7,
+   "section": "Section 7 \u2014 Kubernetes & Helm (M8)",
+   "line": "The application is accessible through the Ingress endpoint, demonstrating how browser traffic reaches the Kubernetes deployment."
+  },
+  {
+   "t": 591.0,
+   "section": "Section 7 \u2014 Kubernetes & Helm (M8)",
+   "line": "I will now demonstrate pod recovery."
+  },
+  {
+   "t": 596.1,
+   "section": "Section 7 \u2014 Kubernetes & Helm (M8)",
+   "line": "When a pod managed by a Deployment is deleted, Kubernetes detects that the desired number of replicas is no longer available and creates a replacement."
+  },
+  {
+   "t": 608.0,
+   "section": "Section 7 \u2014 Kubernetes & Helm (M8)",
+   "line": "The application data is stored separately in PostgreSQL, so deleting a backend pod should not delete the existing tickets."
+  },
+  {
+   "t": 617.5,
+   "section": "Section 7 \u2014 Kubernetes & Helm (M8)",
+   "line": "I will verify this by deleting a backend pod and checking that Kubernetes creates a replacement."
+  },
+  {
+   "t": 629.9,
+   "section": "Section 8 \u2014 Monitoring (M9)",
+   "line": "Monitoring is the next part of the project."
+  },
+  {
+   "t": 634.9,
+   "section": "Section 8 \u2014 Monitoring (M9)",
+   "line": "Prometheus collects application metrics by scraping the configured backend endpoints."
+  },
+  {
+   "t": 640.6,
+   "section": "Section 8 \u2014 Monitoring (M9)",
+   "line": "On this page, I can inspect the configured targets and check whether Prometheus is successfully collecting metrics from the application."
+  },
+  {
+   "t": 650.5,
+   "section": "Section 8 \u2014 Monitoring (M9)",
+   "line": "Both backend replicas should appear as healthy targets when the deployment is operating correctly."
+  },
+  {
+   "t": 657.9,
+   "section": "Section 8 \u2014 Monitoring (M9)",
+   "line": "Grafana provides the dashboard for visualizing these metrics."
+  },
+  {
+   "t": 672.3,
+   "section": "Section 8 \u2014 Monitoring (M9)",
+   "line": "The ServiceDesk dashboard contains twenty-three panels covering application-level behavior, including request rates, error ratios, and latency percentiles."
+  },
+  {
+   "t": 681.0,
+   "section": "Section 8 \u2014 Monitoring (M9)",
+   "line": "These metrics help us understand how the application is performing instead of looking only at the health of the underlying infrastructure."
+  },
+  {
+   "t": 691.3,
+   "section": "Section 8 \u2014 Monitoring (M9)",
+   "line": "I will now generate some traffic and show how it appears in the dashboard."
+  },
+  {
+   "t": 698.7,
+   "section": "Section 8 \u2014 Monitoring (M9)",
+   "line": "I have now sent sixty requests to the ticket API."
+  },
+  {
+   "t": 704.4,
+   "section": "Section 8 \u2014 Monitoring (M9)",
+   "line": "After the metrics collection and dashboard refresh interval, the request-rate panel should reflect the additional traffic."
+  },
+  {
+   "t": 712.6,
+   "section": "Section 8 \u2014 Monitoring (M9)",
+   "line": "The exact graph depends on the scrape interval, dashboard time range, and query window."
+  },
+  {
+   "t": 720.0,
+   "section": "Section 9 \u2014 Terraform (M7)",
+   "line": "This project also includes infrastructure as code using Terraform."
+  },
+  {
+   "t": 725.4,
+   "section": "Section 9 \u2014 Terraform (M7)",
+   "line": "The configuration describes a thirty-five-resource infrastructure plan, including a VPC, four subnets distributed across two availability zones, an internet gateway, NAT, route tables, security groups, an EKS cluster, and a managed node group."
+  },
+  {
+   "t": 740.6,
+   "section": "Section 9 \u2014 Terraform (M7)",
+   "line": "I want to be transparent about the scope of this module."
+  },
+  {
+   "t": 746.8,
+   "section": "Section 9 \u2014 Terraform (M7)",
+   "line": "I did not have access to an AWS account, so I did not apply the EKS infrastructure to a live AWS environment."
+  },
+  {
+   "t": 757.5,
+   "section": "Section 9 \u2014 Terraform (M7)",
+   "line": "The networking portion was applied and destroyed against LocalStack, which is a local AWS service emulator. I have the Terraform state and command-line verification for that work."
+  },
+  {
+   "t": 770.3,
+   "section": "Section 9 \u2014 Terraform (M7)",
+   "line": "However, the EKS portion was planned and validated rather than deployed, because the free LocalStack environment used for this project does not implement the required EKS API."
+  },
+  {
+   "t": 783.1,
+   "section": "Section 9 \u2014 Terraform (M7)",
+   "line": "I have documented this limitation in the README."
+  },
+  {
+   "t": 788.1,
+   "section": "Section 9 \u2014 Terraform (M7)",
+   "line": "I believe it is important to distinguish between infrastructure that has actually been deployed and infrastructure that has only been planned and validated."
+  },
+  {
+   "t": 812.3,
+   "section": "Section 11 \u2014 Conclusion",
+   "line": "To conclude, this project gave me practical experience across the full DevOps lifecycle, from application development and automated testing to container security, CI/CD, Kubernetes, infrastructure as code, and monitoring."
+  },
+  {
+   "t": 825.9,
+   "section": "Section 11 \u2014 Conclusion",
+   "line": "There are two improvements I would prioritize next."
+  },
+  {
+   "t": 830.9,
+   "section": "Section 11 \u2014 Conclusion",
+   "line": "First, I would introduce an advisory lock around database migration execution to prevent multiple replicas from racing during initial startup."
+  },
+  {
+   "t": 840.7,
+   "section": "Section 11 \u2014 Conclusion",
+   "line": "Second, I would validate and deploy the Terraform EKS configuration in a real AWS account when the necessary access is available."
+  },
+  {
+   "t": 851.0,
+   "section": "Section 11 \u2014 Conclusion",
+   "line": "One of my biggest lessons was that a deployment environment can expose problems that do not appear in local testing."
+  },
+  {
+   "t": 860.9,
+   "section": "Section 11 \u2014 Conclusion",
+   "line": "I encountered issues involving non-root container execution, binaries with file capabilities, and proxy Host header and SNI behavior."
+  },
+  {
+   "t": 870.0,
+   "section": "Section 11 \u2014 Conclusion",
+   "line": "These experiences taught me that passing tests is essential, but portability and real deployment behavior must also be verified."
+  },
+  {
+   "t": 879.4,
+   "section": "Section 11 \u2014 Conclusion",
+   "line": "Thank you for watching my ServiceDesk DevOps capstone demonstration."
+  }
+ ]
+}
