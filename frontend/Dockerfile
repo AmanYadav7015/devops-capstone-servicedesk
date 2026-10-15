@@ -11,6 +11,7 @@ RUN npm run build
 FROM nginx:1.31-alpine AS runtime
 
 RUN apk upgrade --no-cache \
+ && rm -f /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh \
  && apk add --no-cache --virtual .build-deps libcap \
  && setcap cap_net_bind_service=+ep /usr/sbin/nginx \
  && apk del .build-deps \
