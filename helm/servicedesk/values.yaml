@@ -4,8 +4,8 @@ fullnameOverride: ""
 replicaCount: 2
 
 backend:
-  image: ghcr.io/amanyadav7015/servicedesk-backend
-  tag: ""
+  image: servicedesk-backend
+  tag: "20261015-1131"
   pullPolicy: IfNotPresent
   replicas: 2
   port: 8000
@@ -27,8 +27,8 @@ backend:
         - ALL
 
 frontend:
-  image: ghcr.io/amanyadav7015/servicedesk-frontend
-  tag: ""
+  image: servicedesk-frontend
+  tag: "20261015-1131"
   pullPolicy: IfNotPresent
   replicas: 2
   port: 80
