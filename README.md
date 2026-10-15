@@ -59,6 +59,23 @@ before anyone clicks the links.
 **The services sleep after 15 minutes of inactivity.** The first request after a sleep takes roughly
 50 seconds while the container is restarted. The site is not broken during that wait, it is waking up.
 
+Because the frontend and the backend are separate services, they wake separately, and the frontend
+usually wins. Opening the console cold therefore shows **"Unexpected error loading the queue"** with
+empty counters: the page is already being served while the API behind it is still starting. Waiting a
+few seconds and pressing **Retry** loads the data.
+
+To avoid that entirely, wake the API first and open the console second:
+
+```bash
+curl https://servicedesk-backend-1qrp.onrender.com/health
+```
+
+Wait for `{"status":"UP"}`, which can take up to a minute, then open the console. Both services then
+stay awake for the next fifteen minutes.
+
+Measured on a cold start: the API answered in 35 seconds, after which five consecutive requests
+through the frontend proxy all returned 200.
+
 **The database is removed on 14 November 2026.** After that date the console still loads, because the
 frontend is a static bundle, but every API call fails because the backend has nothing to connect to.
 The exact date is shown on the `servicedesk-db` page in the Render dashboard.
