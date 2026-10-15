@@ -1,0 +1,86 @@
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount: 2
+
+backend:
+  image: ghcr.io/amanyadav7015/servicedesk-backend
+  tag: ""
+  pullPolicy: IfNotPresent
+  replicas: 2
+  port: 8000
+  appName: ServiceDesk API
+  compatibilityServiceName: backend
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+
+frontend:
+  image: ghcr.io/amanyadav7015/servicedesk-frontend
+  tag: ""
+  pullPolicy: IfNotPresent
+  replicas: 2
+  port: 80
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 101
+    allowPrivilegeEscalation: false
+
+imagePullSecrets: []
+
+postgres:
+  enabled: true
+  image: postgres:16-alpine
+  pullPolicy: IfNotPresent
+  port: 5432
+  database: servicedesk
+  username: servicedesk
+  password: servicedesk
+  persistence:
+    enabled: true
+    size: 2Gi
+    storageClassName: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+ingress:
+  enabled: true
+  className: nginx
+  host: servicedesk.local
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 2m
+
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 60
+
+monitoring:
+  serviceMonitor:
+    enabled: true
+    interval: 15s
+    releaseLabel: kube-prometheus-stack

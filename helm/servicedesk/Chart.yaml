@@ -1,0 +1,15 @@
+apiVersion: v2
+name: servicedesk
+description: ServiceDesk helpdesk capstone - FastAPI ticketing backend, static frontend and PostgreSQL
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - servicedesk
+  - helpdesk
+  - ticketing
+  - fastapi
+  - postgresql
+  - devops
+maintainers:
+  - name: Aman Yadav
