@@ -5,7 +5,7 @@ replicaCount: 2
 
 backend:
   image: servicedesk-backend
-  tag: "20261015-1131"
+  tag: "1.0.0-local.20261015"
   pullPolicy: IfNotPresent
   replicas: 2
   port: 8000
@@ -28,7 +28,7 @@ backend:
 
 frontend:
   image: servicedesk-frontend
-  tag: "20261015-1131"
+  tag: "1.0.0-local.20261015"
   pullPolicy: IfNotPresent
   replicas: 2
   port: 80
