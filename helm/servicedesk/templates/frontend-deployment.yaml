@@ -32,6 +32,9 @@ spec:
           ports:
             - name: http
               containerPort: {{ .Values.frontend.port }}
+          env:
+            - name: BACKEND_ORIGIN
+              value: {{ printf "http://%s-backend.%s.svc.cluster.local:%v" (include "servicedesk.fullname" .) .Release.Namespace .Values.backend.port | quote }}
           startupProbe:
             httpGet:
               path: /
