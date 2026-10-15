@@ -1,0 +1,13 @@
+Alembic migration environment for the ServiceDesk API.
+
+The database URL is not stored in alembic.ini. It is read at runtime from the
+DATABASE_URL environment variable through app.config.settings, so the same
+migration scripts run unchanged against a local container, docker compose and
+the Kubernetes deployment.
+
+Usage from the backend/ directory:
+
+    alembic upgrade head        apply every pending migration
+    alembic current             show the revision the database is stamped with
+    alembic history --verbose   list the revision chain
+    alembic downgrade base      roll every migration back
