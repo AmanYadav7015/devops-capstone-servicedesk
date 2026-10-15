@@ -15,3 +15,4 @@ terraform.rc
 *.tfvars.json
 !terraform.tfvars.example
 !*.auto.tfvars.example
+!terraform.tfvars
