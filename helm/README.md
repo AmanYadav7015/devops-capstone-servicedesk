@@ -176,7 +176,7 @@ has the Prometheus operator CRDs, it is created — it appears in the resource l
 ### 4. Install
 
 ```console
-$ helm upgrade --install servicedesk helm/servicedesk -n servicedesk --wait
+$ helm upgrade --install servicedesk helm/servicedesk -n servicedesk --reset-values --wait
 Release "servicedesk" has been upgraded. Happy Helming!
 NAME: servicedesk
 LAST DEPLOYED: Thu Oct 15 17:05:21 2026
@@ -204,8 +204,90 @@ Reach it from the host by forwarding the ingress controller:
   curl -H 'Host: servicedesk.local' http://127.0.0.1:8080/api/tickets
 ```
 
-The same command creates the release on an empty namespace and updates it afterwards, which is the
-whole reason for `upgrade --install`.
+The `servicedesk` namespace has been through several revisions by now, so that run reported
+`REVISION: 5` and `Upgrade complete`; `--reset-values` is there for the reason explained under
+"Helm 4 notes". To show the same command genuinely creating a release from nothing, it was also run
+against a throwaway namespace. The only override is the Ingress host, because ingress-nginx's
+admission webhook refuses to let two Ingress objects claim the same host and path — the first
+attempt without it was rejected with
+`host "servicedesk.local" and path "/api" is already defined in ingress servicedesk/servicedesk`,
+which is itself a useful demonstration that the live Ingress owns that route.
+
+```console
+$ kubectl create namespace servicedesk-verify
+namespace/servicedesk-verify created
+
+$ helm upgrade --install servicedesk helm/servicedesk -n servicedesk-verify \
+    --set ingress.host=servicedesk-verify.local --wait --timeout 6m
+Release "servicedesk" does not exist. Installing it now.
+NAME: servicedesk
+LAST DEPLOYED: Thu Oct 15 17:10:02 2026
+NAMESPACE: servicedesk-verify
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+
+$ kubectl get pods -n servicedesk-verify
+NAME                                    READY   STATUS    RESTARTS     AGE
+servicedesk-backend-78f49d549c-bbrws    1/1     Running   0            21s
+servicedesk-backend-78f49d549c-rsnbm    1/1     Running   1 (7s ago)   21s
+servicedesk-frontend-657bb65c89-22vp6   1/1     Running   0            21s
+servicedesk-frontend-657bb65c89-s8q8l   1/1     Running   0            21s
+servicedesk-postgres-c86f4dc94-rcfdf    1/1     Running   0            21s
+
+$ kubectl get svc,ingress -n servicedesk-verify
+NAME                           TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)    AGE
+service/backend                ClusterIP   10.106.43.101    <none>        8000/TCP   21s
+service/servicedesk-backend    ClusterIP   10.96.46.48      <none>        8000/TCP   21s
+service/servicedesk-frontend   ClusterIP   10.103.138.117   <none>        80/TCP     21s
+service/servicedesk-postgres   ClusterIP   10.99.162.207    <none>        5432/TCP   21s
+
+NAME                                    CLASS   HOSTS                      ADDRESS        PORTS   AGE
+ingress.networking.k8s.io/servicedesk   nginx   servicedesk-verify.local   192.168.49.2   80      21s
+
+$ minikube ssh -- "curl -s -o /dev/null -w 'GET /api/tickets -> %{http_code} %{content_type}\n' -H 'Host: servicedesk-verify.local' http://192.168.49.2/api/tickets"
+GET /api/tickets -> 200 application/json
+```
+
+A clean namespace reaches a working stack in well under a minute from a single command. The
+throwaway namespace was then removed:
+
+```console
+$ helm uninstall servicedesk -n servicedesk-verify
+These resources were kept due to the resource policy:
+[PersistentVolumeClaim] servicedesk-postgres-data
+
+release "servicedesk" uninstalled
+
+$ kubectl delete namespace servicedesk-verify
+namespace "servicedesk-verify" deleted
+```
+
+#### One honest wrinkle on a cold database
+
+Note the `RESTARTS 1` on one backend pod above. On a database that has never been migrated, both
+backend replicas start at the same moment and both run `alembic upgrade head`; one of them loses the
+race to create the bookkeeping table:
+
+```console
+$ kubectl logs -n servicedesk-verify servicedesk-backend-78f49d549c-rsnbm -c backend --previous | tail -4
+sqlalchemy.exc.IntegrityError: (psycopg.errors.UniqueViolation) duplicate key value violates unique constraint "pg_type_typname_nsp_index"
+DETAIL:  Key (typname, typnamespace)=(alembic_version, 2200) already exists.
+[SQL:
+CREATE TABLE alembic_version (
+```
+
+Kubernetes restarts the container, the second attempt finds the table already there, and the pod
+goes `Running` about seven seconds later — which is why the install still reports success and the
+rollout still converges to 2/2. It happens only on the very first install against an empty volume;
+every later start and every upgrade finds the schema already at head and is a no-op.
+
+Properly removing it means serialising the migration — an advisory lock around `alembic upgrade
+head`, or a dedicated migration step — and the migration is invoked from the backend image's
+entrypoint rather than from this chart, so the fix belongs with the application image and not here.
+The chart makes it harmless rather than hiding it: the `wait-for-postgres` init container
+(fix 5 below) guarantees the database is reachable, so the only remaining contention is between the
+two replicas, and the readiness probe keeps the loser out of the Service until it has recovered.
 
 ## What is running
 
