@@ -220,30 +220,61 @@ cd terraform && terraform plan
 
 ## 10 · The live change — M10, 2 minutes, finish on this
 
-> "Last thing: a change going from my editor to the running cluster."
+This is the only section that needs a terminal, and it is the one the rubric scores directly:
+"commit a change, watch the pipeline run, see the deployment update". Three of the four links are
+in the browser; only the rollout needs a shell.
 
-Edit a version string. Commit with a real message. Push.
+Before recording, confirm what the cluster serves so the change is visible:
 
 ```bash
-git commit -am "Bump the API version served by the root banner"
-git push
-gh run watch --exit-status
+curl -s http://servicedesk.local:8080/ 
 ```
 
-While it runs:
+It should report version 1.1.0. You are about to make it 1.2.0.
 
-> "Tests, then build and scan, then publish — tagged with this commit's SHA."
+**Step 1 — make the change in the browser.** On GitHub, open `backend/app/config.py`, click the
+pencil, change `1.1.0` to `1.2.0`, and commit to main with a real message such as
+"Bump the API version served by the root banner".
 
-When green, show the registry page with the new tag, then:
+> "One line, committed straight to main. Nothing else touched."
+
+**Step 2 — watch it build.** Switch to the Actions tab. The run starts within a few seconds.
+
+> "Tests first. Nothing downstream runs until they pass. Then the images build, Trivy scans them,
+> and only then does anything get published."
+
+Let it go green on camera. It takes about ninety seconds — that is the right length to talk over.
+
+**Step 3 — the new image exists.** Open the package page and point at the newest tag.
+
+> "Tagged with the commit SHA. Not latest. That image did not exist two minutes ago."
+
+**Step 4 — put it on the cluster.** Switch to a clean terminal:
 
 ```bash
-helm upgrade servicedesk helm/servicedesk -n servicedesk --set backend.tag=<new-sha>
+cd ~/Desktop/devops-heros/helpdesk-capstone
+git pull
+TAG=$(git rev-parse HEAD)
+helm upgrade servicedesk helm/servicedesk -n servicedesk --set backend.tag=$TAG --set frontend.tag=$TAG
 kubectl rollout status deploy/servicedesk-backend -n servicedesk
-curl -s http://servicedesk.local:8080/ | head -c 120
 ```
 
-> "New version, live in the cluster. Source commit, pipeline, scanned image, registry, rollout — one
-> chain, nothing by hand."
+`git rev-parse HEAD` resolves to the same forty-character SHA the pipeline used as the image tag, so
+there is nothing to copy by hand and nothing to mistype on camera.
+
+> "Same SHA the pipeline just published. Helm swaps the image and the Deployment rolls the pods one
+> at a time, so the service never goes down."
+
+**Step 5 — prove it landed.** Back to the browser, reload the app, or in the terminal:
+
+```bash
+curl -s http://servicedesk.local:8080/
+```
+
+> "Version 1.2.0. Source commit, tested, scanned, published, deployed — one chain, nothing by hand."
+
+If the rollout stalls, say what you expected and move on; `docs/DEMO.md` records the same chain
+completed end to end on an earlier commit.
 
 ---
 
