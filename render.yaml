@@ -35,6 +35,8 @@ services:
     autoDeploy: true
     envVars:
       - key: PORT
-        value: "80"
+        value: "8080"
+      - key: NGINX_PORT
+        value: "8080"
       - key: BACKEND_ORIGIN
         sync: false

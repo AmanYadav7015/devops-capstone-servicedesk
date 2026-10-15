@@ -31,8 +31,10 @@ spec:
           imagePullPolicy: {{ .Values.frontend.pullPolicy }}
           ports:
             - name: http
-              containerPort: {{ .Values.frontend.port }}
+              containerPort: {{ .Values.frontend.containerPort }}
           env:
+            - name: NGINX_PORT
+              value: "{{ .Values.frontend.containerPort }}"
             - name: BACKEND_ORIGIN
               value: {{ printf "http://%s-backend.%s.svc.cluster.local:%v" (include "servicedesk.fullname" .) .Release.Namespace .Values.backend.port | quote }}
           startupProbe:
