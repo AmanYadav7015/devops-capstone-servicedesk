@@ -7,7 +7,7 @@ def test_root_banner_identifies_the_servicedesk_api(client: TestClient) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["service"] == "ServiceDesk API"
-    assert body["version"] == "1.0.0"
+    assert body["version"] == "1.1.0"
     assert body["docs"] == "/docs"
 
 
