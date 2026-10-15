@@ -686,7 +686,7 @@ call was made, and every prediction matched.
 |---|---|---|
 | `tests/test_health.py` | 5 | `GET /`, `GET /health`, `GET /ready`, `GET /metrics`, unknown route |
 | `tests/test_categories.py` | 5 | `GET /api/categories`, `POST /api/categories` |
-| `tests/test_tickets.py` | 17 | `POST`, `GET`, `GET /{id}`, `PUT /{id}`, `DELETE /{id}` on `/api/tickets` |
+| `tests/test_tickets.py` | 18 | `POST`, `GET`, `GET /{id}`, `PUT /{id}`, `DELETE /{id}` on `/api/tickets` |
 | `tests/test_stats.py` | 7 | `GET /api/tickets/stats` |
 | `tests/test_database_isolation.py` | 5 | the test-database guarantees themselves |
 

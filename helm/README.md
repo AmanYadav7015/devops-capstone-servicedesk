@@ -53,28 +53,86 @@ helm/
 
 ## Images
 
-The chart currently points at images built on this machine and side-loaded into the minikube node:
+The chart pins the images the GitHub Actions pipeline published to the GitHub Container Registry,
+by full commit SHA — never `latest`:
 
 | Component | Image | Tag |
 |---|---|---|
-| Backend | `servicedesk-backend` | `1.0.0-local.20261015` |
-| Frontend | `servicedesk-frontend` | `1.0.0-local.20261015` |
-| Database | `postgres` | `16-alpine` (pulled from Docker Hub) |
+| Backend | `ghcr.io/amanyadav7015/servicedesk-backend` | `10c0b811fb6f6243164a52e4417cfb58befc250d` |
+| Frontend | `ghcr.io/amanyadav7015/servicedesk-frontend` | `10c0b811fb6f6243164a52e4417cfb58befc250d` |
+| Database | `postgres` | `16-alpine`, pulled from Docker Hub |
 
-These are local builds because at the time of writing the GitHub Actions pipeline had not yet
-published the ServiceDesk packages — `ghcr.io/amanyadav7015/servicedesk-backend` and
-`ghcr.io/amanyadav7015/servicedesk-frontend` both answer `DENIED` to an anonymous tag listing, which
-is what GHCR returns for a package that does not exist. The tags were not guessed; they were looked
-up and found to be absent:
+The tags were not guessed. They were listed from the registry, cross-referenced against the
+pipeline runs, and the newest one belonging to a green run was chosen:
 
 ```console
-$ curl -s -H "Authorization: Bearer $TOKEN" \
-    https://ghcr.io/v2/amanyadav7015/servicedesk-backend/tags/list
+$ TOKEN=$(curl -s 'https://ghcr.io/token?scope=repository%3Aamanyadav7015%2Fservicedesk-backend%3Apull&service=ghcr.io' | jq -r .token)
+$ curl -s -H "Authorization: Bearer $TOKEN" https://ghcr.io/v2/amanyadav7015/servicedesk-backend/tags/list
+{"name":"amanyadav7015/servicedesk-backend","tags":["b7562de4074c01323eae9a736ac7b948f1471ffe","b7562de","dfae50b187964678491d99e26c49ebd7a743a3ef","dfae50b","909b2294f3f17d7d390a3d49e5c77c22fc80544e","909b229","10c0b811fb6f6243164a52e4417cfb58befc250d","10c0b81"]}
+
+$ gh run list -R AmanYadav7015/devops-capstone-servicedesk -L 4 \
+    --json headSha,displayTitle,conclusion,status,createdAt \
+    --jq '.[] | "\(.createdAt) \(.status)/\(.conclusion) \(.headSha[0:7]) \(.displayTitle)"'
+2026-10-15T11:43:01Z completed/success 10c0b81 docs: sharpen the honest scoring of Terraform and observability
+2026-10-15T11:40:41Z completed/success 909b229 docs: add the project README and the student guide
+2026-10-15T11:39:36Z completed/success dfae50b test: remove the CI gate probe now the block is recorded
+2026-10-15T11:38:27Z completed/failure 759989a test: prove the pipeline blocks a build when pytest fails
+```
+
+The pipeline publishes each image twice, under the full 40-character SHA and under the short SHA.
+The chart pins the full SHA, because the short form is ambiguous by design. Note the `759989a` run
+that failed: no images were published for it, which is the pipeline's test gate doing its job.
+
+A pinned tag is a snapshot. Every push to `main` publishes a new pair, so refreshing the pin is the
+listing above plus two lines of `values.yaml` and one `helm upgrade` — revisions 6 and 7 in the
+history below are exactly that, done twice as new commits landed.
+
+### These images are amd64 and the node is arm64
+
+The pipeline builds on a `linux/amd64` GitHub runner, while this minikube node is `arm64`. The
+published manifests confirm it:
+
+```console
+$ curl -sL -H "Authorization: Bearer $TOKEN" https://ghcr.io/v2/amanyadav7015/servicedesk-backend/blobs/$CONFIG_DIGEST | jq -r '.os + " / " + .architecture'
+linux / amd64
+```
+
+They still run, under the Rosetta binfmt handler that Docker Desktop installs into the VM. This was
+checked with a throwaway pod before the release was moved over, rather than assumed:
+
+```console
+$ kubectl run arch-probe -n servicedesk --image=ghcr.io/amanyadav7015/servicedesk-backend:10c0b811fb6f6243164a52e4417cfb58befc250d \
+    --restart=Never --command -- python -c "import platform;print('ran ok on',platform.machine())"
+pod/arch-probe created
+
+$ kubectl logs arch-probe -n servicedesk
+ran ok on x86_64
+```
+
+and it is still true of the running release:
+
+```console
+$ kubectl exec -n servicedesk deploy/servicedesk-backend -- python -c "import platform;print(platform.machine())"
+x86_64
+```
+
+`x86_64` from an `arm64` kernel is the emulation showing through. It works, but every instruction
+is translated, so the pods are slower to start and use more CPU than a native build would. On a
+real `amd64` cluster — including the EKS node group the Terraform module describes — nothing is
+emulated and this note does not apply.
+
+### Before the pipeline had published anything
+
+For most of this work the GHCR packages did not exist yet. An anonymous tag listing returned the
+`DENIED` that GHCR uses for a package that is not there:
+
+```console
+$ curl -s -H "Authorization: Bearer $TOKEN" https://ghcr.io/v2/amanyadav7015/servicedesk-backend/tags/list
 {"errors":[{"code":"DENIED","message":"invalid token"}]}
 ```
 
-Both images were built from the repository's own Dockerfiles, with no modification, and loaded into
-the node:
+so the chart was brought up against images built from the repository's own Dockerfiles, unmodified,
+and side-loaded into the node:
 
 ```console
 $ docker build -t servicedesk-backend:1.0.0-local.20261015 -f backend/Dockerfile backend
@@ -86,32 +144,17 @@ docker.io/library/servicedesk-frontend:1.0.0-local.20261015
 docker.io/library/servicedesk-backend:1.0.0-local.20261015
 ```
 
-Because they were built on the same Apple Silicon machine the node runs on, both images are native
-`linux/arm64` and nothing is emulated:
+Those builds were native `linux/arm64`, which is why the earlier revisions in the history below
+started faster than the current ones. Revisions 1 to 5 ran on them; revision 6 moved the release
+onto GHCR and revision 7 refreshed the pin to the newest green commit. Switching back, if the
+registry is ever unreachable, is two lines of `values.yaml` and one `helm upgrade` — the templates
+do not care where the image comes from.
 
-```console
-$ docker image inspect servicedesk-backend:1.0.0-local.20261015 --format '{{.Os}}/{{.Architecture}}'
-linux/arm64
-```
-
-### Switching to the GHCR images
-
-Once the pipeline publishes SHA-tagged packages, three lines in `values.yaml` move the release over
-— no template changes:
-
-```yaml
-backend:
-  image: ghcr.io/amanyadav7015/servicedesk-backend
-  tag: "<commit sha>"
-frontend:
-  image: ghcr.io/amanyadav7015/servicedesk-frontend
-  tag: "<commit sha>"
-```
-
-followed by `helm upgrade --install servicedesk helm/servicedesk -n servicedesk`. The GHCR images
-are built by the pipeline on a `linux/amd64` runner, so on this `arm64` node they run under the
-Rosetta binfmt handler that Docker Desktop installs. That works but is slower than the native build
-above, and it is the reason the local build is what this walkthrough was captured against.
+The local build also surfaced two genuine bugs in the frontend before the pipeline ever ran, both
+since fixed by their owner: `@vitejs/plugin-react@6.1.2` peer-requires `vite@^8` while
+`package.json` pinned `vite@7.1.12`, so `npm install` exited 1 with `ERESOLVE`; and
+`vite.config.ts` referenced `process` with no `@types/node`, so `tsc --noEmit` — the first half of
+`npm run build` — failed with `TS2591`. Either would have failed the pipeline's image build too.
 
 ## Walkthrough
 
@@ -174,6 +217,10 @@ ask, so the `.Capabilities.APIVersions.Has` guard renders it out. Against the re
 has the Prometheus operator CRDs, it is created — it appears in the resource listing further down.
 
 ### 4. Install
+
+The same command installs and updates, which is the whole reason for `upgrade --install`. Captured
+here at revision 5, while the chart still pointed at the locally built images; revisions 6 and 7
+moved it onto GHCR and are shown later under "A real upgrade".
 
 ```console
 $ helm upgrade --install servicedesk helm/servicedesk -n servicedesk --reset-values --wait
@@ -293,33 +340,41 @@ two replicas, and the readiness probe keeps the loser out of the Service until i
 
 ```console
 $ kubectl get pods -n servicedesk -o wide
-NAME                                    READY   STATUS    RESTARTS   AGE     IP            NODE       NOMINATED NODE   READINESS GATES
-servicedesk-backend-78f49d549c-d4tlq    1/1     Running   0          53s     10.244.0.39   minikube   <none>           <none>
-servicedesk-backend-78f49d549c-mh45c    1/1     Running   0          53s     10.244.0.40   minikube   <none>           <none>
-servicedesk-frontend-657bb65c89-6f22m   1/1     Running   0          2m13s   10.244.0.37   minikube   <none>           <none>
-servicedesk-frontend-657bb65c89-klptz   1/1     Running   0          2m17s   10.244.0.36   minikube   <none>           <none>
-servicedesk-postgres-c86f4dc94-8dfvs    1/1     Running   0          12m     10.244.0.14   minikube   <none>           <none>
+NAME                                   READY   STATUS    RESTARTS   AGE   IP            NODE       NOMINATED NODE   READINESS GATES
+servicedesk-backend-74bf855f66-4f2dx   1/1     Running   0          27s   10.244.0.60   minikube   <none>           <none>
+servicedesk-backend-74bf855f66-9krgp   1/1     Running   0          52s   10.244.0.57   minikube   <none>           <none>
+servicedesk-frontend-6d5c67dbb-h9fvr   1/1     Running   0          52s   10.244.0.58   minikube   <none>           <none>
+servicedesk-frontend-6d5c67dbb-rpp48   1/1     Running   0          43s   10.244.0.59   minikube   <none>           <none>
+servicedesk-postgres-c86f4dc94-8dfvs   1/1     Running   0          22m   10.244.0.14   minikube   <none>           <none>
 
 $ kubectl get deploy -n servicedesk
 NAME                   READY   UP-TO-DATE   AVAILABLE   AGE
-servicedesk-backend    2/2     2            2           12m
-servicedesk-frontend   2/2     2            2           12m
-servicedesk-postgres   1/1     1            1           12m
+servicedesk-backend    2/2     2            2           22m
+servicedesk-frontend   2/2     2            2           22m
+servicedesk-postgres   1/1     1            1           22m
 
 $ kubectl get svc -n servicedesk
 NAME                   TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)    AGE
-backend                ClusterIP   10.111.177.221   <none>        8000/TCP   12m
-servicedesk-backend    ClusterIP   10.111.96.42     <none>        8000/TCP   12m
-servicedesk-frontend   ClusterIP   10.102.12.52     <none>        80/TCP     12m
-servicedesk-postgres   ClusterIP   10.97.163.12     <none>        5432/TCP   12m
+backend                ClusterIP   10.111.177.221   <none>        8000/TCP   22m
+servicedesk-backend    ClusterIP   10.111.96.42     <none>        8000/TCP   22m
+servicedesk-frontend   ClusterIP   10.102.12.52     <none>        80/TCP     22m
+servicedesk-postgres   ClusterIP   10.97.163.12     <none>        5432/TCP   22m
 
 $ kubectl get ingress -n servicedesk
 NAME          CLASS   HOSTS               ADDRESS        PORTS   AGE
-servicedesk   nginx   servicedesk.local   192.168.49.2   80      12m
+servicedesk   nginx   servicedesk.local   192.168.49.2   80      22m
 
 $ helm list -n servicedesk
 NAME       	NAMESPACE  	REVISION	UPDATED                             	STATUS  	CHART            	APP VERSION
-servicedesk	servicedesk	5       	2026-10-15 17:05:21.615829 +0530 IST	deployed	servicedesk-1.0.0	1.0.0
+servicedesk	servicedesk	7       	2026-10-15 17:14:53.848245 +0530 IST	deployed	servicedesk-1.0.0	1.0.0
+
+$ kubectl get pods -n servicedesk \
+    -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.containers[0].image}{"\n"}{end}'
+servicedesk-backend-74bf855f66-4f2dx	ghcr.io/amanyadav7015/servicedesk-backend:10c0b811fb6f6243164a52e4417cfb58befc250d
+servicedesk-backend-74bf855f66-9krgp	ghcr.io/amanyadav7015/servicedesk-backend:10c0b811fb6f6243164a52e4417cfb58befc250d
+servicedesk-frontend-6d5c67dbb-h9fvr	ghcr.io/amanyadav7015/servicedesk-frontend:10c0b811fb6f6243164a52e4417cfb58befc250d
+servicedesk-frontend-6d5c67dbb-rpp48	ghcr.io/amanyadav7015/servicedesk-frontend:10c0b811fb6f6243164a52e4417cfb58befc250d
+servicedesk-postgres-c86f4dc94-8dfvs	postgres:16-alpine
 ```
 
 Every Service is `ClusterIP`; nothing is exposed with a NodePort or a LoadBalancer, because the
@@ -329,24 +384,26 @@ The autoscaler and the Prometheus ServiceMonitor are live too:
 
 ```console
 $ kubectl get hpa -n servicedesk
-NAME                  REFERENCE                        TARGETS        MINPODS   MAXPODS   REPLICAS   AGE
-servicedesk-backend   Deployment/servicedesk-backend   cpu: 11%/60%   2         6         2          12m
+NAME                  REFERENCE                        TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
+servicedesk-backend   Deployment/servicedesk-backend   cpu: 7%/60%   2         6         2          23m
 
 $ kubectl top pods -n servicedesk
-NAME                                    CPU(cores)   MEMORY(bytes)
-servicedesk-backend-78f49d549c-d4tlq    10m          68Mi
-servicedesk-backend-78f49d549c-mh45c    13m          68Mi
-servicedesk-frontend-657bb65c89-6f22m   1m           12Mi
-servicedesk-frontend-657bb65c89-klptz   1m           12Mi
-servicedesk-postgres-c86f4dc94-8dfvs    5m           37Mi
+NAME                                   CPU(cores)   MEMORY(bytes)
+servicedesk-backend-74bf855f66-4f2dx   7m           89Mi
+servicedesk-backend-74bf855f66-9krgp   7m           90Mi
+servicedesk-frontend-6d5c67dbb-h9fvr   1m           32Mi
+servicedesk-frontend-6d5c67dbb-rpp48   1m           32Mi
+servicedesk-postgres-c86f4dc94-8dfvs   3m           37Mi
 
 $ kubectl get servicemonitor -n servicedesk
 NAME                  AGE
-servicedesk-backend   12m
+servicedesk-backend   23m
 ```
 
 The `hpa.minReplicas` is 2, so the autoscaler can never take either Deployment below the two
-replicas the application is specified to run.
+replicas the application is specified to run. The HPA reads `<unknown>` for roughly a minute after
+every rollout, because metrics-server has not yet collected a sample from the new pods; it settles
+on its own and is not a fault.
 
 ## The Ingress routes both halves of one host
 
@@ -358,9 +415,12 @@ Rules:
   Host               Path  Backends
   ----               ----  --------
   servicedesk.local
-                     /api   servicedesk-backend:8000 (10.244.0.40:8000,10.244.0.39:8000)
-                     /      servicedesk-frontend:80 (10.244.0.36:80,10.244.0.37:80)
+                     /api   servicedesk-backend:8000 (10.244.0.57:8000,10.244.0.60:8000)
+                     /      servicedesk-frontend:80 (10.244.0.58:80,10.244.0.59:80)
 ```
+
+Those four addresses are exactly the pod IPs listed above — the Ingress is wired to live pods, not
+to a Service that happens to exist.
 
 `/` returns the operator console's HTML:
 
@@ -430,7 +490,7 @@ A ticket is created over HTTP, read back, and then shown to outlive the pods tha
 
 ```console
 $ minikube ssh -- "curl -s -X POST -H 'Host: servicedesk.local' -H 'Content-Type: application/json' \
-    -d '{\"subject\":\"Printer on floor 3 rejects every job\", ... ,\"category_id\":1}' \
+    -d '{\"subject\":\"Printer on floor 3 rejects every job\",\"description\":\"Queue accepts the job then drops it; reproduced from three different laptops after the firmware update\",\"severity\":\"MEDIUM\",\"status\":\"OPEN\",\"requester\":\"rahul.menon@example.com\",\"assignee\":\"deskside-support\",\"category_id\":1}' \
     -w '\nHTTP %{http_code}\n' http://192.168.49.2/api/tickets"
 {"subject":"Printer on floor 3 rejects every job","description":"Queue accepts the job then drops it; reproduced from three different laptops after the firmware update","severity":"MEDIUM","status":"OPEN","requester":"rahul.menon@example.com","assignee":"deskside-support","category_id":1,"id":78,"created_at":"2026-10-15T11:34:41.054905Z","sla_due_at":"2026-10-16T11:34:41.054909Z"}
 HTTP 201
@@ -525,7 +585,7 @@ $ minikube ssh -- "curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: servicedes
 200
 ```
 
-Putting it back to the committed defaults, and the resulting history:
+Putting it back to the committed defaults:
 
 ```console
 $ helm upgrade --install servicedesk helm/servicedesk -n servicedesk --reset-values --wait
@@ -540,26 +600,94 @@ DESCRIPTION: Upgrade complete
 $ kubectl get deploy servicedesk-frontend -n servicedesk
 NAME                   READY   UP-TO-DATE   AVAILABLE   AGE
 servicedesk-frontend   2/2     2            2           11m
+```
 
+### Changing the image, which is the upgrade that matters
+
+Revision 6 swapped both application images from the local builds to the GHCR packages, by editing
+`values.yaml` and running the same command. This is the rollout the `maxUnavailable: 0` strategy
+was added for, and the output catches it mid-flight — new pods `Running` while an old one is still
+`Terminating`:
+
+```console
+$ helm upgrade --install servicedesk helm/servicedesk -n servicedesk --reset-values --wait --timeout 8m
+Release "servicedesk" has been upgraded. Happy Helming!
+NAME: servicedesk
+LAST DEPLOYED: Thu Oct 15 17:13:39 2026
+NAMESPACE: servicedesk
+STATUS: deployed
+REVISION: 6
+DESCRIPTION: Upgrade complete
+TEST SUITE: None
+NOTES:
+ServiceDesk 1.0.0 is installed as release servicedesk in namespace servicedesk.
+
+Backend image:  ghcr.io/amanyadav7015/servicedesk-backend:dfae50b187964678491d99e26c49ebd7a743a3ef
+Frontend image: ghcr.io/amanyadav7015/servicedesk-frontend:dfae50b187964678491d99e26c49ebd7a743a3ef
+
+$ kubectl get pods -n servicedesk -o wide
+NAME                                   READY   STATUS        RESTARTS   AGE     IP            NODE       NOMINATED NODE   READINESS GATES
+servicedesk-backend-744546b96d-nvftm   1/1     Running       0          22s     10.244.0.53   minikube   <none>           <none>
+servicedesk-backend-744546b96d-wj9rv   1/1     Running       0          11s     10.244.0.55   minikube   <none>           <none>
+servicedesk-backend-78f49d549c-mh45c   1/1     Terminating   0          9m11s   10.244.0.40   minikube   <none>           <none>
+servicedesk-frontend-8869697d8-8qlts   1/1     Running       0          10s     10.244.0.56   minikube   <none>           <none>
+servicedesk-frontend-8869697d8-c28b5   1/1     Running       0          22s     10.244.0.54   minikube   <none>           <none>
+servicedesk-postgres-c86f4dc94-8dfvs   1/1     Running       0          20m     10.244.0.14   minikube   <none>           <none>
+```
+
+Revision 7 repeated it once more when a newer green commit landed, which is how the release reached
+the tag pinned at the top of this document. Every application pod was replaced twice across those
+two revisions, and the ticket created earlier is still readable through the Ingress afterwards —
+the data lives on the PersistentVolumeClaim, not in the pods:
+
+```console
+$ minikube ssh -- "curl -s -H 'Host: servicedesk.local' http://192.168.49.2/api/tickets/78"
+{"subject":"Printer on floor 3 rejects every job","description":"Queue accepts the job then drops it; reproduced from three different laptops after the firmware update","severity":"MEDIUM","status":"OPEN","requester":"rahul.menon@example.com","assignee":"deskside-support","category_id":1,"id":78,"created_at":"2026-10-15T11:34:41.054905Z","sla_due_at":"2026-10-16T11:34:41.054909Z"}
+```
+
+### The history
+
+```console
 $ helm history servicedesk -n servicedesk
 REVISION	UPDATED                 	STATUS    	CHART            	APP VERSION	DESCRIPTION
 1       	Thu Oct 15 16:53:34 2026	superseded	servicedesk-1.0.0	1.0.0      	Install complete
 2       	Thu Oct 15 17:01:31 2026	superseded	servicedesk-1.0.0	1.0.0      	Upgrade complete
 3       	Thu Oct 15 17:03:27 2026	superseded	servicedesk-1.0.0	1.0.0      	Upgrade complete
 4       	Thu Oct 15 17:05:10 2026	superseded	servicedesk-1.0.0	1.0.0      	Upgrade complete
-5       	Thu Oct 15 17:05:21 2026	deployed  	servicedesk-1.0.0	1.0.0      	Upgrade complete
+5       	Thu Oct 15 17:05:21 2026	superseded	servicedesk-1.0.0	1.0.0      	Upgrade complete
+6       	Thu Oct 15 17:13:39 2026	superseded	servicedesk-1.0.0	1.0.0      	Upgrade complete
+7       	Thu Oct 15 17:14:53 2026	deployed  	servicedesk-1.0.0	1.0.0      	Upgrade complete
 ```
 
-What the five revisions actually were: 1 the first install (backend and database only, while the
-frontend image was still being built), 2 the first upgrade carrying a working frontend image,
-3 the move onto the final pinned image tag, 4 the scale to three frontend replicas, 5 the return to
-the chart defaults. Any of them can be restored with `helm rollback servicedesk <n> -n servicedesk`.
+| Revision | What changed |
+|---|---|
+| 1 | First install. Backend and database only — the frontend image did not exist yet. |
+| 2 | First locally built frontend image, so the whole stack came up. |
+| 3 | Both images moved onto the final local tag, `1.0.0-local.20261015`. |
+| 4 | Frontend scaled to three replicas. |
+| 5 | Back to the chart defaults. |
+| 6 | Both images moved to the GHCR packages at commit `dfae50b`. |
+| 7 | Pin refreshed to `10c0b81`, the newest green pipeline run. |
+
+Any of them can be restored with `helm rollback servicedesk <n> -n servicedesk`.
 
 ## Helm 4 notes
 
 Helm 4 changes a few habits that matter when following this walkthrough:
 
-- `helm list --all` is gone. Use `helm list -a`, or `helm list -n <ns>` for a single namespace.
+- `helm list --all` is gone, and so is its `-a` shorthand:
+
+  ```console
+  $ helm list --all -n servicedesk
+  Error: unknown flag: --all
+
+  $ helm list -a -n servicedesk
+  Error: unknown shorthand flag: 'a' in -a
+  ```
+
+  Helm 4's `helm list` already shows releases in any status, and the old behaviour is now expressed
+  with explicit filters — `--deployed`, `--failed`, `--pending`, `--superseded`, `--uninstalled`,
+  `--uninstalling` — or `-A` for every namespace.
 - A bare `--dry-run` is deprecated in favour of `--dry-run=client` or `--dry-run=server`. This
   walkthrough uses `helm template`, which is unaffected.
 - Helm 4 applies server-side by default, so field ownership conflicts surface as real errors rather
@@ -757,8 +885,8 @@ above, which deliberately bypasses the rollout.
 | `nameOverride` | `""` | Replaces the chart name inside the generated resource names. |
 | `fullnameOverride` | `""` | Replaces the whole generated name prefix. |
 | `replicaCount` | `2` | Fallback replica count for both application Deployments. |
-| `backend.image` | `servicedesk-backend` | Backend image repository. |
-| `backend.tag` | `1.0.0-local.20261015` | Backend image tag. Empty falls back to `.Chart.AppVersion`. |
+| `backend.image` | `ghcr.io/amanyadav7015/servicedesk-backend` | Backend image repository. |
+| `backend.tag` | `10c0b811fb6f6243164a52e4417cfb58befc250d` | Backend image tag, the publishing commit SHA. Empty falls back to `.Chart.AppVersion`. |
 | `backend.pullPolicy` | `IfNotPresent` | Image pull policy for the backend. |
 | `backend.replicas` | `2` | Backend replicas; overrides `replicaCount`. |
 | `backend.port` | `8000` | Container and Service port for the backend. |
@@ -766,8 +894,8 @@ above, which deliberately bypasses the rollout.
 | `backend.compatibilityServiceName` | `backend` | Name of the alias Service the frontend nginx upstream resolves. Set to `""` to drop it. |
 | `backend.resources` | 100m/256Mi to 500m/512Mi | Backend requests and limits. The CPU request is also what the HPA measures against. |
 | `backend.securityContext` | non-root uid 10001, no privilege escalation, all capabilities dropped | Container security context for the backend. |
-| `frontend.image` | `servicedesk-frontend` | Frontend image repository. |
-| `frontend.tag` | `1.0.0-local.20261015` | Frontend image tag. Empty falls back to `.Chart.AppVersion`. |
+| `frontend.image` | `ghcr.io/amanyadav7015/servicedesk-frontend` | Frontend image repository. |
+| `frontend.tag` | `10c0b811fb6f6243164a52e4417cfb58befc250d` | Frontend image tag, the publishing commit SHA. Empty falls back to `.Chart.AppVersion`. |
 | `frontend.pullPolicy` | `IfNotPresent` | Image pull policy for the frontend. |
 | `frontend.replicas` | `2` | Frontend replicas; overrides `replicaCount`. |
 | `frontend.port` | `80` | Container and Service port for the frontend. |
@@ -837,7 +965,7 @@ the ticket data behind on purpose; deleting the namespace is what finally remove
 |---|---|
 | `k8s/namespace.yaml` exists and applies cleanly | "The namespace" above; `namespace/servicedesk unchanged` on re-apply |
 | Helm chart with `Chart.yaml`, `values.yaml` and templates | the layout tree; `helm lint` passes with 0 failures |
-| `helm upgrade --install` deploys without errors | "Install" above, and four further upgrades in `helm history` |
+| `helm upgrade --install` deploys without errors | "Install" above; a from-scratch install into an empty namespace, plus seven revisions in `helm history` |
 | Backend and frontend Deployments at 2+ replicas each | `kubectl get deploy` shows `servicedesk-backend 2/2` and `servicedesk-frontend 2/2` |
 | ClusterIP Services expose backend and frontend | `kubectl get svc`; all four Services are `ClusterIP` |
 | Ingress routes `/` to the frontend and `/api` to the backend | `kubectl describe ingress` plus the two curl captures returning `text/html` and `application/json` |
