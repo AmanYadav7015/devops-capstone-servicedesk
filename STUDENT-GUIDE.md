@@ -187,8 +187,9 @@ kubectl get ns servicedesk
 
 ### 6.3 Choose the images
 
-The chart's defaults in `helm/servicedesk/values.yaml` point at locally built images, so the chart
-installs on a cluster with no registry access. There are therefore two ways to deploy.
+The chart's defaults in `helm/servicedesk/values.yaml` already name the GHCR images and the commit
+SHA of the release they were last deployed with, so section 6.4's plain `helm upgrade --install`
+works with no arguments. Deploy a different commit by overriding the tag.
 
 **Option A — images from GHCR, tagged with a commit (this is the real path).**
 
@@ -216,7 +217,13 @@ minikube image load servicedesk-frontend:local
 
 ### 6.4 Install
 
-Option A:
+The committed defaults, no arguments:
+
+```bash
+helm upgrade --install servicedesk helm/servicedesk --namespace servicedesk --wait --timeout 10m
+```
+
+Option A, pinning a commit of your choice:
 
 ```bash
 helm upgrade --install servicedesk helm/servicedesk \

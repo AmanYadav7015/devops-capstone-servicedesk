@@ -14,6 +14,7 @@ that the console header and the Grafana dashboard both read.
 - Repository: <https://github.com/AmanYadav7015/devops-capstone-servicedesk>
 - Images: `ghcr.io/amanyadav7015/servicedesk-backend`, `ghcr.io/amanyadav7015/servicedesk-frontend`
 - Live demo walkthrough: [docs/DEMO.md](docs/DEMO.md)
+- Pipeline and image walkthrough: [docs/CI.md](docs/CI.md)
 - Step-by-step operator guide: [STUDENT-GUIDE.md](STUDENT-GUIDE.md)
 
 ## Scope and originality
@@ -173,7 +174,7 @@ k8s/                namespace bootstrap
 monitoring/         Prometheus and Grafana values, the ServiceDesk dashboard, install script
 scripts/            load generator used to exercise the HPA and the dashboards
 troubleshooting/    two deliberately broken manifests used as diagnostic exercises
-docs/               demo walkthrough and supporting evidence
+docs/               the live demo, the pipeline walkthrough and console screenshots
 ```
 
 ## Run it locally
@@ -328,8 +329,10 @@ helm upgrade --install servicedesk helm/servicedesk \
   --wait
 ```
 
-The chart's committed defaults point at locally built images so that it installs on a cluster with
-no registry access; the command above is the registry path, and it is the one the demo uses.
+The chart's committed defaults already point at the GHCR images for the release it was last
+deployed with, so `helm upgrade --install servicedesk helm/servicedesk -n servicedesk --wait` on its
+own is enough to stand the application up. Passing the tag explicitly, as above, is how a specific
+commit is deployed, and it is what [docs/DEMO.md](docs/DEMO.md) does.
 
 | Object | Detail |
 |---|---|
@@ -407,11 +410,11 @@ Where a grader can find each rubric item proven.
 | M5 | Workflow present, triggers on push to `main` | `.github/workflows/ci-cd.yml` |
 | M5 | pytest gates the build | `backend-tests` is a dependency of every downstream job |
 | M5 | Frontend built in the pipeline | `frontend-build` job |
-| M5 | Both images built and pushed to GHCR | `build-scan-publish` job |
+| M5 | Both images built and pushed to GHCR | `build-scan-publish` job; walked through in [docs/CI.md](docs/CI.md) |
 | M5 | Tags use the commit SHA | image reference block above; [docs/DEMO.md](docs/DEMO.md) |
 | M6 | Trivy scans both images in CI | `build-scan-publish` job, three Trivy steps |
 | M6 | Pipeline fails on HIGH/CRITICAL | `--exit-code 1` on both gate steps |
-| M6 | Explanation of the result | the security section above and `.trivyignore.yaml` |
+| M6 | Explanation of the result | the security section above, `.trivyignore.yaml`, and [docs/CI.md](docs/CI.md) |
 | M7 | Valid HCL, `init`, `plan` | `terraform/`, `terraform/evidence/01`, `02`, `02b` |
 | M7 | VPC with 2+ public subnets | `terraform/modules/network`; applied for real on LocalStack, evidence `04`–`06` |
 | M7 | EKS with a node group | `terraform/modules/eks`; planned only — see the Terraform section |
