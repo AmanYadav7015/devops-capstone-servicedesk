@@ -45,11 +45,30 @@ Defined in [`render.yaml`](render.yaml): a managed PostgreSQL instance plus the 
 as Docker web services. Alembic runs on backend start, so the schema and the seeded categories are
 created on first boot.
 
-**Both services are on Render's free tier and sleep after 15 minutes of inactivity.** The first
-request after a sleep takes roughly 50 seconds while the container wakes. The managed database is
-removed after 30 days, after which the site loads but the API returns errors. This hosting is a
-convenience for reviewing the application; the Kubernetes deployment described below is the
-deliverable.
+### How long this deployment stays up
+
+| | |
+|---|---|
+| Deployed | **15 October 2026** |
+| Database removed on | **14 November 2026** — Render deletes a free PostgreSQL instance 30 days after creation |
+| Web services | no fixed expiry, but Render may suspend a free service after 90 days without a deploy |
+
+Everything on this deployment is on Render's free tier, which has two consequences worth stating
+before anyone clicks the links.
+
+**The services sleep after 15 minutes of inactivity.** The first request after a sleep takes roughly
+50 seconds while the container is restarted. The site is not broken during that wait, it is waking up.
+
+**The database is removed on 14 November 2026.** After that date the console still loads, because the
+frontend is a static bundle, but every API call fails because the backend has nothing to connect to.
+The exact date is shown on the `servicedesk-db` page in the Render dashboard.
+
+If this needs to stay available past that date, the options are to create a fresh free database and
+repoint `DATABASE_URL`, or to move the instance to a paid plan. Neither affects the repository: the
+schema is created by Alembic on boot, so a new database is populated automatically on the next deploy.
+
+This hosting exists so the application can be reviewed without a local setup. **The Kubernetes
+deployment described below is the actual deliverable**, and it does not depend on Render in any way.
 
 ### Three portability faults this deployment exposed
 
