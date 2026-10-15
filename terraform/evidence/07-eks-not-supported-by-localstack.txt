@@ -1,0 +1,106 @@
+Captured on 2026-10-15 at 16:59 IST. LocalStack community 3.8.1 does not implement EKS, so the EKS
+half of this configuration cannot be applied anywhere on this machine. This file is the evidence
+for that claim rather than an assertion of it. LocalStack was asked for EKS three ways and refused
+all three.
+
+PROBE 1 - LocalStack's own health endpoint does not list eks at all.
+PROBE 2 - the AWS CLI, pointed at the LocalStack endpoint.
+PROBE 3 - Terraform, running modules/eks against a provider whose eks, ec2, iam and sts endpoints
+          all point at LocalStack. The probe root is terraform/localstack-eks-probe/ and it is
+          committed, so this run can be reproduced.
+
+$ docker ps --filter name=localstack-main --format "{{.Image}}  {{.Status}}  {{.Ports}}"
+localstack/localstack:3.8  Up 6 minutes (healthy)  0.0.0.0:4566->4566/tcp, [::]:4566->4566/tcp
+
+$ curl -s http://localhost:4566/_localstack/health | jq   (summarised)
+edition: community   version: 3.8.1
+eks key present: false
+services not disabled: ec2=running  iam=running  s3=available  sts=available
+total service keys reported by LocalStack: 35   (none of them is eks)
+
+$ aws --endpoint-url=http://localhost:4566 eks list-clusters
+
+aws: [ERROR]: An error occurred (InternalFailure) when calling the ListClusters operation: API for service 'eks' not yet implemented or pro feature - please check https://docs.localstack.cloud/references/coverage/ for further information
+
+$ aws --endpoint-url=http://localhost:4566 eks create-cluster --name servicedesk-eks \
+      --role-arn arn:aws:iam::000000000000:role/servicedesk-eks-cluster-role \
+      --resources-vpc-config subnetIds=subnet-6931a4fa,subnet-611dc712,subnet-0a49354e,subnet-e0654c0e
+
+aws: [ERROR]: An error occurred (InternalFailure) when calling the CreateCluster operation: API for service 'eks' not yet implemented or pro feature - please check https://docs.localstack.cloud/references/coverage/ for further information
+
+PROBE 3, Terraform. The probe passes the live LocalStack VPC and subnet ids from the applied
+networking stack into ../modules/eks, with create_cloudwatch_log_group = false and no addons,
+because LocalStack community implements neither CloudWatch Logs nor the EKS addon API.
+
+$ terraform apply -auto-approve \
+    -var vpc_id=vpc-61291d8d \
+    -var vpc_cidr_block=10.20.0.0/16 \
+    -var 'control_plane_subnet_ids=["subnet-6931a4fa","subnet-611dc712","subnet-0a49354e","subnet-e0654c0e"]' \
+    -var 'node_subnet_ids=["subnet-0a49354e","subnet-e0654c0e"]'
+
+(the 320 lines of plan output that Terraform printed first are omitted here for length; the
+resource bodies are the same ones shown in evidence/02)
+
+Plan: 11 to add, 0 to change, 0 to destroy.
+module.eks.aws_iam_role.node: Creating...
+module.eks.aws_iam_role.cluster: Creating...
+module.eks.aws_security_group.cluster: Creating...
+module.eks.aws_iam_role.node: Creation complete after 0s [id=servicedesk-eks-node-role]
+module.eks.aws_iam_role.cluster: Creation complete after 0s [id=servicedesk-eks-cluster-role]
+module.eks.aws_iam_role_policy_attachment.node["arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"]: Creating...
+module.eks.aws_iam_role_policy_attachment.node["arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"]: Creating...
+module.eks.aws_iam_role_policy_attachment.cluster["arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"]: Creating...
+module.eks.aws_iam_role_policy_attachment.node["arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"]: Creating...
+module.eks.aws_iam_role_policy_attachment.cluster["arn:aws:iam::aws:policy/AmazonEKSVPCResourceController"]: Creating...
+module.eks.aws_iam_role_policy_attachment.node["arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"]: Creating...
+module.eks.aws_iam_role_policy_attachment.node["arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"]: Creation complete after 0s [id=servicedesk-eks-node-role/arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy]
+module.eks.aws_iam_role_policy_attachment.cluster["arn:aws:iam::aws:policy/AmazonEKSVPCResourceController"]: Creation complete after 0s [id=servicedesk-eks-cluster-role/arn:aws:iam::aws:policy/AmazonEKSVPCResourceController]
+module.eks.aws_iam_role_policy_attachment.cluster["arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"]: Creation complete after 0s [id=servicedesk-eks-cluster-role/arn:aws:iam::aws:policy/AmazonEKSClusterPolicy]
+module.eks.aws_iam_role_policy_attachment.node["arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"]: Creation complete after 0s [id=servicedesk-eks-node-role/arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy]
+module.eks.aws_iam_role_policy_attachment.node["arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"]: Creation complete after 0s [id=servicedesk-eks-node-role/arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly]
+module.eks.aws_iam_role_policy_attachment.node["arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"]: Creation complete after 0s [id=servicedesk-eks-node-role/arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore]
+module.eks.aws_security_group.cluster: Creation complete after 0s [id=sg-5937e88fcc7bb8c86]
+module.eks.aws_eks_cluster.this: Creating...
+
+Error: creating EKS Cluster (servicedesk-eks): operation error EKS: CreateCluster, https response error StatusCode: 501, RequestID: 3e8693dd-1b03-4dfc-92b2-abfcef2a8f76, api error InternalFailure: API for service 'eks' not yet implemented or pro feature - please check https://docs.localstack.cloud/references/coverage/ for further information
+
+  with module.eks.aws_eks_cluster.this,
+  on ../modules/eks/main.tf line 108, in resource "aws_eks_cluster" "this":
+ 108: resource "aws_eks_cluster" "this" {
+
+exit code: 1
+
+The nine resources LocalStack did create are then destroyed, so nothing is left behind.
+
+$ terraform destroy -auto-approve          (same -var flags)
+
+module.eks.aws_iam_role_policy_attachment.node["arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"]: Destroying... [id=servicedesk-eks-node-role/arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore]
+module.eks.aws_iam_role_policy_attachment.cluster["arn:aws:iam::aws:policy/AmazonEKSVPCResourceController"]: Destroying... [id=servicedesk-eks-cluster-role/arn:aws:iam::aws:policy/AmazonEKSVPCResourceController]
+module.eks.aws_iam_role_policy_attachment.node["arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"]: Destroying... [id=servicedesk-eks-node-role/arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy]
+module.eks.aws_iam_role_policy_attachment.node["arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"]: Destroying... [id=servicedesk-eks-node-role/arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy]
+module.eks.aws_iam_role_policy_attachment.node["arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"]: Destroying... [id=servicedesk-eks-node-role/arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly]
+module.eks.aws_iam_role_policy_attachment.cluster["arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"]: Destroying... [id=servicedesk-eks-cluster-role/arn:aws:iam::aws:policy/AmazonEKSClusterPolicy]
+module.eks.aws_security_group.cluster: Destroying... [id=sg-5937e88fcc7bb8c86]
+module.eks.aws_iam_role_policy_attachment.node["arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"]: Destruction complete after 0s
+module.eks.aws_iam_role_policy_attachment.node["arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"]: Destruction complete after 0s
+module.eks.aws_iam_role_policy_attachment.cluster["arn:aws:iam::aws:policy/AmazonEKSVPCResourceController"]: Destruction complete after 0s
+module.eks.aws_iam_role_policy_attachment.node["arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"]: Destruction complete after 0s
+module.eks.aws_iam_role_policy_attachment.cluster["arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"]: Destruction complete after 0s
+module.eks.aws_iam_role_policy_attachment.node["arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"]: Destruction complete after 0s
+module.eks.aws_security_group.cluster: Destruction complete after 0s
+module.eks.aws_iam_role.cluster: Destroying... [id=servicedesk-eks-cluster-role]
+module.eks.aws_iam_role.node: Destroying... [id=servicedesk-eks-node-role]
+module.eks.aws_iam_role.node: Destruction complete after 0s
+module.eks.aws_iam_role.cluster: Destruction complete after 0s
+Destroy complete! Resources: 9 destroyed.
+exit code: 0
+
+$ terraform state list
+(empty)
+
+What this proves and what it does not.
+The two IAM roles, all six policy attachments and the control plane security group were created
+successfully, because LocalStack community does implement IAM and EC2. So the HCL in modules/eks
+is sound and the failure is the emulator missing a service, not a defect in the configuration.
+It is still only an HTTP 501 from an emulator. It is not a running EKS cluster and nothing here
+claims that it is.

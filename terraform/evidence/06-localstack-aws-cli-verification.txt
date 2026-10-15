@@ -1,0 +1,87 @@
+Captured on 2026-10-15 at 16:58 IST. Independent verification of the applied stack with the AWS
+CLI instead of Terraform. AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY were both the literal
+string 'test', which is what LocalStack documents as its ignored placeholder.
+
+All commands below ran against LocalStack on http://localhost:4566, never against AWS.
+VPC under test: vpc-61291d8d
+
+$ aws --endpoint-url=http://localhost:4566 ec2 describe-vpcs --filters Name=tag:Project,Values=servicedesk
+------------------------------------------------------------------
+|                          DescribeVpcs                          |
++--------------+-------------------+------------+----------------+
+|     Cidr     |       Name        |   State    |     VpcId      |
++--------------+-------------------+------------+----------------+
+|  10.20.0.0/16|  servicedesk-vpc  |  available |  vpc-61291d8d  |
++--------------+-------------------+------------+----------------+
+
+$ aws --endpoint-url=http://localhost:4566 ec2 describe-subnets --filters Name=vpc-id,Values=vpc-61291d8d
+-----------------------------------------------------------------------------
+|                              DescribeSubnets                              |
++-------------+-----------------+-----------+-------------------+-----------+
+|     AZ      |      Cidr       | PublicIP  |     SubnetId      |   Tier    |
++-------------+-----------------+-----------+-------------------+-----------+
+|  ap-south-1a|  10.20.1.0/24   |  False    |  subnet-0a49354e  |  private  |
+|  ap-south-1a|  10.20.101.0/24 |  True     |  subnet-6931a4fa  |  public   |
+|  ap-south-1b|  10.20.102.0/24 |  True     |  subnet-611dc712  |  public   |
+|  ap-south-1b|  10.20.2.0/24   |  False    |  subnet-e0654c0e  |  private  |
++-------------+-----------------+-----------+-------------------+-----------+
+
+Public subnet count and distinct availability zones:
+  public subnets: 2
+  AZ: ap-south-1a
+  AZ: ap-south-1b
+
+$ aws --endpoint-url=http://localhost:4566 ec2 describe-internet-gateways --filters Name=attachment.vpc-id,Values=vpc-61291d8d
+-----------------------------------------------
+|          DescribeInternetGateways           |
++--------------+----------------+-------------+
+|  AttachedTo  |     IgwId      |    State    |
++--------------+----------------+-------------+
+|  vpc-61291d8d|  igw-fcf5813d  |  available  |
++--------------+----------------+-------------+
+
+$ aws --endpoint-url=http://localhost:4566 ec2 describe-route-tables --filters Name=vpc-id,Values=vpc-61291d8d
+---------------------------------------------------------------------------
+|                           DescribeRouteTables                           |
++-------+--------------------------------------+---------------+----------+
+| Assoc |                Name                  | RouteTableId  | Routes   |
++-------+--------------------------------------+---------------+----------+
+|  1    |  None                                |  rtb-426cc564 |  1       |
+|  2    |  servicedesk-public-rt               |  rtb-936bc288 |  2       |
+|  1    |  servicedesk-private-rt-ap-south-1b  |  rtb-143a4a96 |  2       |
+|  1    |  servicedesk-private-rt-ap-south-1a  |  rtb-755bfb8c |  2       |
++-------+--------------------------------------+---------------+----------+
+
+$ aws --endpoint-url=http://localhost:4566 ec2 describe-route-tables --route-table-ids rtb-936bc288 --query 'RouteTables[0].Routes'          (rtb-936bc288 is servicedesk-public-rt)
+--------------------------------------------
+|            DescribeRouteTables           |
++---------------+---------+----------------+
+|  Destination  |  State  |    Target      |
++---------------+---------+----------------+
+|  10.20.0.0/16 |  active |  local         |
+|  0.0.0.0/0    |  active |  igw-fcf5813d  |
++---------------+---------+----------------+
+
+$ aws --endpoint-url=http://localhost:4566 ec2 describe-nat-gateways --filter Name=vpc-id,Values=vpc-61291d8d
+-----------------------------------------------------------
+|                   DescribeNatGateways                   |
++------------------------+------------+-------------------+
+|      NatGatewayId      |   State    |     SubnetId      |
++------------------------+------------+-------------------+
+|  nat-dde67a769f368280f |  available |  subnet-6931a4fa  |
++------------------------+------------+-------------------+
+
+$ aws --endpoint-url=http://localhost:4566 ec2 describe-security-groups --filters Name=vpc-id,Values=vpc-61291d8d
+----------------------------------------------------------------
+|                    DescribeSecurityGroups                    |
++----------------------+----------------------+----------------+
+|        GroupId       |      GroupName       | IngressRules   |
++----------------------+----------------------+----------------+
+|  sg-b5611c3518b91217d|  default             |  0             |
+|  sg-efa85df90fa52d940|  servicedesk-alb-sg  |  2             |
+|  sg-4c29fd75b5bbbc209|  servicedesk-app-sg  |  2             |
++----------------------+----------------------+----------------+
+
+Rubric line: a VPC with at least two public subnets. Both public subnets have
+MapPublicIpOnLaunch true, sit in two different availability zones, and are associated with the
+servicedesk-public-rt route table whose 0.0.0.0/0 route points at the internet gateway.

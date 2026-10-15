@@ -1,0 +1,40 @@
+Captured on 2026-10-15 at 17:00 IST, immediately after the destroy in evidence/08.
+Post-destroy verification. Every query below is against LocalStack on http://localhost:4566.
+
+$ terraform state list
+(empty: the state file holds no resources)
+
+$ aws ec2 describe-vpcs --filters Name=tag:Project,Values=servicedesk
+servicedesk VPCs remaining: []
+
+$ aws ec2 describe-subnets --filters Name=tag:Project,Values=servicedesk
+servicedesk subnets remaining: []
+
+$ aws ec2 describe-internet-gateways --filters Name=tag:Project,Values=servicedesk
+servicedesk internet gateways remaining: []
+
+$ aws ec2 describe-route-tables --filters Name=tag:Project,Values=servicedesk
+servicedesk route tables remaining: []
+
+$ aws ec2 describe-nat-gateways  (state available)
+servicedesk NAT gateways remaining: []
+
+$ aws ec2 describe-addresses
+elastic IPs remaining: []
+
+$ aws ec2 describe-security-groups  (names containing servicedesk)
+servicedesk security groups remaining: []
+
+$ aws iam list-roles  (names starting with servicedesk)
+servicedesk IAM roles remaining: []
+
+$ aws ec2 describe-vpcs  (everything LocalStack still holds)
+172.31.0.0/16	True	vpc-270ff5db
+(only the LocalStack default VPC is left; it was never managed by this configuration)
+
+$ docker ps --filter name=localstack-main
+localstack-main  localstack/localstack:3.8  Up 8 minutes (healthy)
+(left running as required)
+
+Nothing prefixed servicedesk- remains anywhere in LocalStack, in EC2 or in IAM. The LocalStack
+container was deliberately left running.

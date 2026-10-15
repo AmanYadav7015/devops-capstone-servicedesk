@@ -1,0 +1,87 @@
+Captured on 2026-10-15 at 16:57 IST in terraform/localstack/, against LocalStack on
+http://localhost:4566. These are LocalStack identifiers, not AWS identifiers.
+
+$ terraform state list
+module.network.aws_eip.nat[0]
+module.network.aws_internet_gateway.this
+module.network.aws_nat_gateway.this[0]
+module.network.aws_route.private_nat[0]
+module.network.aws_route.private_nat[1]
+module.network.aws_route.public_internet
+module.network.aws_route_table.private[0]
+module.network.aws_route_table.private[1]
+module.network.aws_route_table.public
+module.network.aws_route_table_association.private[0]
+module.network.aws_route_table_association.private[1]
+module.network.aws_route_table_association.public[0]
+module.network.aws_route_table_association.public[1]
+module.network.aws_security_group.alb
+module.network.aws_security_group.app
+module.network.aws_subnet.private[0]
+module.network.aws_subnet.private[1]
+module.network.aws_subnet.public[0]
+module.network.aws_subnet.public[1]
+module.network.aws_vpc.this
+
+$ terraform output
+alb_security_group_id = "sg-efa85df90fa52d940"
+app_security_group_id = "sg-4c29fd75b5bbbc209"
+internet_gateway_id = "igw-fcf5813d"
+nat_gateway_ids = [
+  "nat-dde67a769f368280f",
+]
+private_route_table_ids = [
+  "rtb-755bfb8c",
+  "rtb-143a4a96",
+]
+private_subnet_ids = [
+  "subnet-0a49354e",
+  "subnet-e0654c0e",
+]
+public_route_table_id = "rtb-936bc288"
+public_subnet_azs = [
+  "ap-south-1a",
+  "ap-south-1b",
+]
+public_subnet_cidrs = [
+  "10.20.101.0/24",
+  "10.20.102.0/24",
+]
+public_subnet_ids = [
+  "subnet-6931a4fa",
+  "subnet-611dc712",
+]
+vpc_cidr_block = "10.20.0.0/16"
+vpc_id = "vpc-61291d8d"
+
+$ terraform plan -detailed-exitcode          (idempotency check: 0 = no drift, 2 = drift)
+module.network.aws_vpc.this: Refreshing state... [id=vpc-61291d8d]
+module.network.aws_internet_gateway.this: Refreshing state... [id=igw-fcf5813d]
+module.network.aws_route_table.public: Refreshing state... [id=rtb-936bc288]
+module.network.aws_subnet.public[0]: Refreshing state... [id=subnet-6931a4fa]
+module.network.aws_route_table.private[1]: Refreshing state... [id=rtb-143a4a96]
+module.network.aws_route_table.private[0]: Refreshing state... [id=rtb-755bfb8c]
+module.network.aws_subnet.private[0]: Refreshing state... [id=subnet-0a49354e]
+module.network.aws_subnet.private[1]: Refreshing state... [id=subnet-e0654c0e]
+module.network.aws_subnet.public[1]: Refreshing state... [id=subnet-611dc712]
+module.network.aws_security_group.alb: Refreshing state... [id=sg-efa85df90fa52d940]
+module.network.aws_eip.nat[0]: Refreshing state... [id=eipalloc-96c52849]
+module.network.aws_route.public_internet: Refreshing state... [id=r-rtb-936bc2881080289494]
+module.network.aws_route_table_association.public[1]: Refreshing state... [id=rtbassoc-8be9051a]
+module.network.aws_route_table_association.private[0]: Refreshing state... [id=rtbassoc-fe1da657]
+module.network.aws_route_table_association.private[1]: Refreshing state... [id=rtbassoc-434ba7e8]
+module.network.aws_route_table_association.public[0]: Refreshing state... [id=rtbassoc-941e621e]
+module.network.aws_security_group.app: Refreshing state... [id=sg-4c29fd75b5bbbc209]
+module.network.aws_nat_gateway.this[0]: Refreshing state... [id=nat-dde67a769f368280f]
+module.network.aws_route.private_nat[1]: Refreshing state... [id=r-rtb-143a4a961080289494]
+module.network.aws_route.private_nat[0]: Refreshing state... [id=r-rtb-755bfb8c1080289494]
+
+No changes. Your infrastructure matches the configuration.
+
+Terraform has compared your real infrastructure against your configuration
+and found no differences, so no changes are needed.
+exit code: 0
+
+The re-plan is clean because this stack creates no EC2 instances. LocalStack omits security
+groups from DescribeInstances, which would otherwise leave a permanent ~ vpc_security_group_ids
+diff on every plan after the first apply.

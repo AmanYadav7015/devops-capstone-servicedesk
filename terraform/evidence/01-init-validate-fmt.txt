@@ -1,0 +1,31 @@
+Captured on 2026-10-15 at 16:54 IST on macOS (darwin_arm64), with no AWS account configured.
+Working directory: terraform/
+
+$ terraform version
+Terraform v1.16.4
+on darwin_arm64
++ provider registry.terraform.io/hashicorp/aws v6.67.0
+
+Your version of Terraform is out of date! The latest version
+is 1.16.6. You can update by downloading from https://developer.hashicorp.com/terraform/install
+
+$ terraform init -input=false
+Initializing the backend...
+
+Initializing modules...
+
+Initializing provider plugins...
+- Reusing previous version of hashicorp/aws from the dependency lock file
+- Using previously-installed hashicorp/aws v6.67.0
+
+Terraform has been successfully initialized!
+exit code: 0
+
+$ terraform fmt -check -recursive
+(no output: every .tf file in terraform/ is canonically formatted)
+exit code: 0
+
+$ terraform validate
+Success! The configuration is valid.
+
+exit code: 0
