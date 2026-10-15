@@ -374,6 +374,15 @@ are misconfigured. On top of the raw series there are recording rules for reques
 p95 latency and the proportion of ticket API calls served inside a 300ms budget, plus three alerts:
 backend not scraped, error ratio above 25%, and more than 10% of ticket calls over budget.
 
+Both ServiceDesk targets report `up`. The dashboard has 23 panels and was proved populated without
+a browser by replaying each panel's query through Grafana's own `POST /api/ds/query` endpoint. To
+see it rendered:
+
+```bash
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 19090:9090
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 13000:80
+```
+
 Full narrative, PromQL and captured output: [`monitoring/README.md`](monitoring/README.md).
 
 ## Evidence map
@@ -414,7 +423,7 @@ Where a grader can find each rubric item proven.
 | M8 | 2+ replicas each, ClusterIP services, Ingress, pods Running | `kubectl` output in [docs/DEMO.md](docs/DEMO.md) |
 | M9 | `/metrics` in Prometheus format | captured in [`monitoring/README.md`](monitoring/README.md) |
 | M9 | Prometheus scraping the app | targets output in [`monitoring/README.md`](monitoring/README.md) |
-| M9 | Grafana installed and a panel populated | dashboard JSON plus queried panel data in [`monitoring/README.md`](monitoring/README.md) |
+| M9 | Grafana installed and a panel populated | dashboard JSON plus every panel replayed through `POST /api/ds/query` in [`monitoring/README.md`](monitoring/README.md) |
 | M10 | README explaining the application | this file |
 | M10 | Live demo: commit → pipeline → deployment updated | [docs/DEMO.md](docs/DEMO.md) |
 
@@ -464,18 +473,32 @@ Honest accounting, module by module.
   next to it, and SARIF artifacts.
 - **M8 Kubernetes and Helm.** Chart deployed to a live minikube cluster in the `servicedesk`
   namespace, two replicas per tier, ClusterIP services, working Ingress, HPA and ServiceMonitor.
+- **M9 Observability.** Prometheus and Grafana are live in the cluster, both ServiceDesk scrape
+  targets report `up`, the recording rules return real series, and the provisioned 23-panel
+  dashboard was shown to be populated by querying each panel through Grafana's own
+  `POST /api/ds/query`. The one thing that does not exist is a *browser screenshot* of the rendered
+  dashboard — nobody opened a browser on this machine. Anyone can open it in about ten seconds:
+
+  ```bash
+  kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 19090:9090
+  kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 13000:80
+  ```
+
 - **M10 Documentation and demo.** This README, [STUDENT-GUIDE.md](STUDENT-GUIDE.md), and a captured
   end-to-end demo in [docs/DEMO.md](docs/DEMO.md).
 
 **Partial, and why.**
 
-- **M7 Terraform.** The HCL is complete and plans cleanly, and the VPC half has been genuinely
-  applied, verified and destroyed — but against LocalStack, not AWS. The EKS cluster has never been
-  created, because there is no AWS account and LocalStack community does not implement EKS. The
-  rubric's "AWS Console screenshot showing VPC and EKS cluster" cannot be produced and is not
-  claimed.
-- **M9 Observability.** Prometheus and Grafana are installed in the cluster, the backend is scraped,
-  the dashboard is provisioned and its panels return data — all verified through the Prometheus and
-  Grafana HTTP APIs. What does not exist is a browser screenshot of the rendered dashboard.
+- **M7 Terraform.** This is the one module that cannot be fully earned here, and a realistic score
+  is 9 to 12 of 15. What is real: the HCL is valid, `init`, `fmt -check` and `validate` all pass,
+  and `plan` produces a genuine 35-resource plan against the real AWS provider. The whole
+  networking layer — 20 resources, including the VPC and two public subnets across two
+  availability zones — was really applied, verified with the AWS CLI and then destroyed, against
+  LocalStack. What is not real: **the EKS cluster has never been created anywhere.** There is no
+  AWS account, and LocalStack community has no EKS API. That limit was proved three separate ways
+  rather than asserted, including a standalone Terraform probe in `terraform/localstack-eks-probe/`
+  in which the IAM roles and the security group really were created and only the EKS call came back
+  `501 Not Implemented`. The rubric's "AWS Console screenshot showing VPC and EKS cluster" cannot be
+  produced, and this project does not claim it.
 
 Everything above is reproducible from this repository. Where something was not done, it says so.

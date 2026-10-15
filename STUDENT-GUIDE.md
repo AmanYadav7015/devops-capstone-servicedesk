@@ -369,32 +369,39 @@ URL=http://localhost:8000/api/tickets COUNT=500 ./scripts/load-test.sh
 ### 8.4 Check Prometheus
 
 ```bash
-kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090 &
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 19090:9090 &
 
-curl -s 'http://localhost:9090/api/v1/targets?state=active' \
+curl -s 'http://localhost:19090/api/v1/targets?state=active' \
   | python3 -c 'import json,sys; [print(t["labels"].get("job"), t["scrapeUrl"], t["health"]) for t in json.load(sys.stdin)["data"]["activeTargets"] if "servicedesk" in t["labels"].get("job","")]'
 
 curl -s --data-urlencode 'query=servicedesk:http_requests:rate5m' \
-  http://localhost:9090/api/v1/query | python3 -m json.tool
+  http://localhost:19090/api/v1/query | python3 -m json.tool
 ```
 
-Prometheus is also on NodePort 30250 (`minikube ssh -- curl http://$(minikube ip):30250`).
+Two targets should report `up`: the ServiceMonitor-driven job and the endpoint-discovery fallback.
+
+Local port 19090 rather than 9090 is deliberate — 9090 is often already taken on a development
+machine, and a port-forward that silently binds to a different process is a confusing way to lose
+an afternoon. Prometheus is also on NodePort 30250
+(`minikube ssh "curl -s http://$(minikube ip):30250/-/ready"`).
 
 ### 8.5 Check Grafana
 
 ```bash
-kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3001:80 &
-open http://localhost:3001     # user: admin, password: $GRAFANA_ADMIN_PASSWORD
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 13000:80 &
+open http://localhost:13000    # user: admin, password: $GRAFANA_ADMIN_PASSWORD
 ```
 
 The ServiceDesk dashboard is the configured home dashboard. From the terminal instead:
 
 ```bash
-curl -s -u "admin:$GRAFANA_ADMIN_PASSWORD" http://localhost:3001/api/search?query=ServiceDesk \
+curl -s -u "admin:$GRAFANA_ADMIN_PASSWORD" 'http://localhost:13000/api/search?query=ServiceDesk' \
   | python3 -m json.tool
 ```
 
-Grafana is also on NodePort 30251.
+Grafana is also on NodePort 30251. `monitoring/README.md` goes further and queries each dashboard
+panel through `POST /api/ds/query`, which is how the panels were shown to be populated without a
+browser.
 
 ---
 
@@ -425,6 +432,7 @@ docker start localstack-main || \
   docker run -d --name localstack-main -p 4566:4566 localstack/localstack
 
 cd terraform/localstack
+cp terraform.tfvars.example terraform.tfvars
 terraform init
 terraform apply -auto-approve
 terraform output
