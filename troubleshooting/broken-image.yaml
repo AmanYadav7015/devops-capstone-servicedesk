@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: servicedesk-broken-image
+  namespace: servicedesk
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: broken-image
+  template:
+    metadata:
+      labels:
+        app: broken-image
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/amanyadav7015/servicedesk-backend:does-not-exist
