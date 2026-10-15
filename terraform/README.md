@@ -104,9 +104,9 @@ terraform/
   variables.tf                     every input, typed, described and validated
   main.tf                          wires the network module into the eks module
   outputs.tf                       20 outputs including the kubeconfig command
-  terraform.tfvars                 the values this project actually uses, no credentials
-  terraform.tfvars.example         the same set as a template to copy
-  .gitignore                       state, plans and ad hoc tfvars excluded
+  terraform.tfvars.example         every input with the values this project uses, copy it to
+                                   terraform.tfvars before running anything
+  .gitignore                       state, plans and every real tfvars file excluded
   modules/
     network/                       VPC, subnets, IGW, NAT, route tables, security groups
     eks/                           IAM roles, control plane, managed node group, addons
@@ -428,7 +428,7 @@ working set. The ones most worth changing:
 `node_desired_size` is under `ignore_changes` on the node group, so a cluster autoscaler can move the
 node count without Terraform fighting it on the next apply.
 
-## Secrets, and the committed `terraform.tfvars`
+## Secrets
 
 No credentials are committed anywhere in this directory. The provider in `versions.tf` has no
 `access_key` or `secret_key`; credentials are supplied at run time through the standard AWS chain —
@@ -438,24 +438,29 @@ environment variables, a shared config profile, or an instance role.
 `override.tf` and every `*.tfvars` file. `.terraform.lock.hcl` is deliberately **not** ignored, so
 the provider version and its checksums are pinned for whoever clones this next.
 
-Two files are then negated back in, deliberately:
+Exactly one class of file is negated back in:
 
 ```
-!terraform.tfvars.example
-!terraform.tfvars
+!*.tfvars.example
+!*.auto.tfvars.example
 ```
 
-`terraform.tfvars.example` is the usual safe template. **`terraform.tfvars` is normally a file you
-would never commit**, and committing it here is a conscious exception, made for two reasons: the
-assignment lists it as a deliverable, and in this project it contains nothing that could be a
-secret. `terraform/terraform.tfvars` holds a region name, a project prefix, CIDR blocks and instance
-sizes. `terraform/localstack/terraform.tfvars` holds those plus `http://localhost:4566`. There is no
-key, token, password or account number in either, and `git check-ignore` confirms that every other
-`*.tfvars` — including anything named `secret.tfvars` — stays ignored, as does all state.
+So `terraform/terraform.tfvars.example` and `terraform/localstack/terraform.tfvars.example` are
+tracked and every real `.tfvars` file is not — including the ones on this machine, which hold only a
+region, a project prefix, CIDR blocks, instance sizes and `http://localhost:4566`. Even though
+nothing in them is sensitive today, `terraform.tfvars` is the file where account ids,
+account-specific role ARNs and occasionally keys end up on a real project, so it stays out of the
+repository as a matter of habit rather than as a judgement call made file by file.
 
-On a real project this exception would not be made: `terraform.tfvars` is where account ids,
-account-specific role ARNs and occasionally keys end up, and the right pattern is to commit only
-`terraform.tfvars.example` and keep the real file local or in a secret manager.
+To run anything here, copy the template first:
+
+```bash
+cp terraform.tfvars.example terraform.tfvars
+cp localstack/terraform.tfvars.example localstack/terraform.tfvars
+```
+
+`git check-ignore -v` confirms both copies are ignored, and `git ls-files | git check-ignore
+--stdin -v` returns nothing, so no ignored file has ever been committed.
 
 ## Honest scorecard against the M7 rubric
 
