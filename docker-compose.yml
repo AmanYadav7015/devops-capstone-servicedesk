@@ -1,0 +1,64 @@
+name: capstone-servicedesk
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: servicedesk-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-servicedesk}
+      POSTGRES_USER: ${POSTGRES_USER:-servicedesk}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-servicedesk}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - servicedesk-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-servicedesk} -d ${POSTGRES_DB:-servicedesk}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    networks:
+      - servicedesk
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: capstone-servicedesk-backend:local
+    container_name: servicedesk-backend
+    restart: unless-stopped
+    environment:
+      APP_NAME: ${APP_NAME:-ServiceDesk API}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-servicedesk}:${POSTGRES_PASSWORD:-servicedesk}@postgres:5432/${POSTGRES_DB:-servicedesk}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    networks:
+      - servicedesk
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: capstone-servicedesk-frontend:local
+    container_name: servicedesk-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    networks:
+      - servicedesk
+
+volumes:
+  servicedesk-postgres-data:
+    name: servicedesk-postgres-data
+
+networks:
+  servicedesk:
+    name: servicedesk-network
