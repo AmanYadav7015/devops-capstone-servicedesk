@@ -38,7 +38,15 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    names = tuple(name for name, _ in DEFAULT_CATEGORIES)
+    names = [name for name, _ in DEFAULT_CATEGORIES]
     op.execute(
-        sa.delete(categories).where(sa.column("name", sa.String).in_(names))
+        sa.text(
+            "UPDATE tickets SET category_id = NULL WHERE category_id IN "
+            "(SELECT id FROM categories WHERE name IN :names)"
+        ).bindparams(sa.bindparam("names", value=tuple(names), expanding=True))
+    )
+    op.execute(
+        sa.text("DELETE FROM categories WHERE name IN :names").bindparams(
+            sa.bindparam("names", value=tuple(names), expanding=True)
+        )
     )
