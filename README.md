@@ -1,5 +1,22 @@
 # ServiceDesk
 
+> ### Try it now
+>
+> | | |
+> |---|---|
+> | **Open the app** | **<https://servicedesk-frontend-iikc.onrender.com>** |
+> | API | <https://servicedesk-backend-1qrp.onrender.com> |
+> | Interactive API docs | <https://servicedesk-backend-1qrp.onrender.com/docs> |
+> | Health | <https://servicedesk-backend-1qrp.onrender.com/health> |
+> | Metrics | <https://servicedesk-backend-1qrp.onrender.com/metrics> |
+> | Recorded walkthrough | [v1.0-demo release](https://github.com/AmanYadav7015/devops-capstone-servicedesk/releases/tag/v1.0-demo) |
+>
+> Both services are on a free tier and sleep after fifteen minutes, so the first request can take
+> up to fifty seconds while they wake. If the console loads but the queue fails, the API is still
+> starting — open the health link above, wait for `{"status":"UP"}`, then reload. The hosted
+> database is removed on **14 November 2026**; after that the page loads but the API returns errors.
+
+
 A help desk ticketing system, built as the Session 21 DevOps capstone and shipped through the full
 pipeline the course asks for: tests, containers, a GitHub Actions workflow, image scanning, a
 container registry, infrastructure as code, a Helm release on Kubernetes, and Prometheus and Grafana
