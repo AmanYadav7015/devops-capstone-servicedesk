@@ -35,7 +35,6 @@ a copy of the reference application.
 |---|---|
 | Recorded walkthrough | [v1.0-demo release](https://github.com/AmanYadav7015/devops-capstone-servicedesk/releases/tag/v1.0-demo) — 14m 44s, captions on screen |
 | Slides | [`docs/deck/servicedesk-capstone.pptx`](docs/deck/servicedesk-capstone.pptx) · [PDF](docs/deck/servicedesk-capstone.pdf) — 22 slides |
-| Narration script | [`docs/VIDEO-SCRIPT.md`](docs/VIDEO-SCRIPT.md) |
 | Caption timings | [`docs/deck/demo-caption-timings.json`](docs/deck/demo-caption-timings.json) — 89 beats with timestamps |
 
 The video sits on a release rather than in the tree so the repository stays small enough to clone
