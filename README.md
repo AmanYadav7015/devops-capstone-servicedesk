@@ -9,7 +9,8 @@
 > | Interactive API docs | <https://servicedesk-backend-1qrp.onrender.com/docs> |
 > | Health | <https://servicedesk-backend-1qrp.onrender.com/health> |
 > | Metrics | <https://servicedesk-backend-1qrp.onrender.com/metrics> |
-> | Recorded walkthrough | [v1.0-demo release](https://github.com/AmanYadav7015/devops-capstone-servicedesk/releases/tag/v1.0-demo) |
+> | **Watch the walkthrough** | **[▶ You can see the video here](https://github.com/AmanYadav7015/devops-capstone-servicedesk/releases/download/v1.0-demo/servicedesk-demo-captioned.webm)** — 14m 44s, captions on screen |
+> | Slides | [servicedesk-capstone.pptx](docs/deck/servicedesk-capstone.pptx) · [PDF](docs/deck/servicedesk-capstone.pdf) |
 >
 > Both services are on a free tier and sleep after fifteen minutes, so the first request can take
 > up to fifty seconds while they wake. If the console loads but the queue fails, the API is still
